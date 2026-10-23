@@ -664,7 +664,7 @@
     function stopRide() {
       pauseRide();
       saveCompletedSession();
-      alert('Entraînement terminé ! Vos statistiques sont prêtes dans l'onglet Analyse.');
+      alert("Entraînement terminé ! Vos statistiques sont prêtes dans l'onglet Analyse.");
       switchTab('analytics');
       resetRide();
     }
@@ -812,7 +812,7 @@
     // --- EXPORT TCX STANDARD POUR GARMIN ---
     function exportTCX() {
       if (sessionData.length === 0) {
-        alert('Aucune donnée enregistrée pour le moment.');
+        alert("Aucune donnée enregistrée pour le moment.");
         return;
       }
       const startTime = new Date(Date.now() - sessionData.length * 1000).toISOString();
