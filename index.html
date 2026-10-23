@@ -186,7 +186,7 @@
     }
     .workout-card.selected { border-color: var(--accent); background: rgba(34, 211, 238, 0.05); }
     .workout-card-title { font-weight: 600; font-size: 1rem; margin-bottom: 4px; display: flex; justify-content: space-between; }
-    .workout-card-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.3; }
+    .workout-card-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.3; margin-bottom: 8px; }
 
     /* Analytics View */
     .analytics-summary {
@@ -248,19 +248,19 @@
     <div class="interval-banner">
       <div class="interval-info">
         <div class="interval-title" id="intervalTitle">Échauffement</div>
-        <div class="interval-next" id="intervalNext">Suivant : 5m @ 180W</div>
+        <div class="interval-next" id="intervalNext">Suivant : --</div>
         <div class="progress-bar-container">
           <div class="progress-bar-fill" id="intervalProgress"></div>
         </div>
       </div>
-      <div class="interval-time" id="intervalTime">05:00</div>
+      <div class="interval-time" id="intervalTime">00:00</div>
     </div>
 
     <div class="cockpit-grid">
       <div class="metric-card full-width power-card">
         <span class="metric-title">Puissance Instantanée</span>
         <div class="power-val" id="valPower">0<span class="metric-unit">W</span></div>
-        <div class="power-target" id="valTarget">Cible : 140 W (Mode ERG)</div>
+        <div class="power-target" id="valTarget">Cible : -- W</div>
       </div>
 
       <div class="metric-card">
@@ -373,54 +373,102 @@
     const WORKOUTS = [
       {
         id: 'ramp_ftp',
-        title: 'Test FTP en Rampe (+20W/min)',
-        desc: 'Échauffement 5 min puis paliers de +20W toutes les minutes jusqu\'à rupture. Calcul automatique.',
+        title: 'Test FTP en Rampe (+10% / min)',
+        desc: 'Échauffement 5 min puis augmentation constante jusqu\'à épuisement pour calculer votre FTP.',
         intervals: [
           { name: 'Échauffement', dur: 300, pct: 0.5 },
-          { name: 'Palier 1', dur: 60, pct: 0.6 },
-          { name: 'Palier 2', dur: 60, pct: 0.7 },
-          { name: 'Palier 3', dur: 60, pct: 0.8 },
-          { name: 'Palier 4', dur: 60, pct: 0.9 },
-          { name: 'Palier 5', dur: 60, pct: 1.0 },
-          { name: 'Palier 6', dur: 60, pct: 1.1 },
-          { name: 'Palier 7', dur: 60, pct: 1.2 },
-          { name: 'Palier 8', dur: 60, pct: 1.3 },
-          { name: 'Palier 9', dur: 60, pct: 1.4 }
+          ...Array(15).fill(0).map((_, i) => ({ name: `Palier ${i+1}`, dur: 60, pct: 0.6 + (i * 0.1) }))
         ]
       },
       {
-        id: 'sweet_spot',
-        title: 'Sweet Spot (2x12 min @ 90%)',
-        desc: 'Amélioration de l\'endurance aérobie et de la puissance sans fatigue excessive.',
+        id: 'ftp_20',
+        title: 'Test FTP 20 min classique',
+        desc: 'Échauffement long, déblocage de 5 min, puis 20 min All-Out. Votre FTP = 95% de la puissance moyenne des 20 min.',
         intervals: [
-          { name: 'Échauffement', dur: 480, pct: 0.6 },
-          { name: 'Bloc 1', dur: 720, pct: 0.9 },
-          { name: 'Récupération', dur: 300, pct: 0.55 },
-          { name: 'Bloc 2', dur: 720, pct: 0.9 },
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          { name: 'Déblocage (Allure Max)', dur: 300, pct: 1.05 },
+          { name: 'Récupération', dur: 600, pct: 0.5 },
+          { name: 'Test 20 min (All-Out)', dur: 1200, pct: 1.05 },
           { name: 'Retour au calme', dur: 300, pct: 0.5 }
         ]
       },
       {
-        id: 'vo2_max',
-        title: 'VO2 Max 30/30 (2 séries de 8 reps)',
-        desc: 'Intervalles courts à 125% FTP et 50% récupération pour maximiser la consommation d\'O2.',
+        id: 'sweet_spot',
+        title: 'Sweet Spot (2x15 min)',
+        desc: 'Amélioration de l\'endurance aérobie et musculaire. Blocs à 90% FTP.',
         intervals: [
-          { name: 'Échauffement', dur: 480, pct: 0.6 },
-          ...Array(8).fill([
-            { name: 'Attaque', dur: 30, pct: 1.25 },
-            { name: 'Récup', dur: 30, pct: 0.5 }
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          { name: 'Bloc 1 (Sweet Spot)', dur: 900, pct: 0.9 },
+          { name: 'Récupération active', dur: 300, pct: 0.55 },
+          { name: 'Bloc 2 (Sweet Spot)', dur: 900, pct: 0.9 },
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
+        ]
+      },
+      {
+        id: 'over_under',
+        title: 'Seuil Over-Under (3 blocs)',
+        desc: 'Alternance 2 min sous le seuil (95%) et 1 min au-dessus (105%) pour entraîner le recyclage de l\'acide lactique.',
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          ...Array(3).fill([
+            { name: 'Under (Seuil -)', dur: 120, pct: 0.95 },
+            { name: 'Over (Seuil +)', dur: 60, pct: 1.05 },
+            { name: 'Under (Seuil -)', dur: 120, pct: 0.95 },
+            { name: 'Over (Seuil +)', dur: 60, pct: 1.05 },
+            { name: 'Under (Seuil -)', dur: 120, pct: 0.95 },
+            { name: 'Over (Seuil +)', dur: 60, pct: 1.05 },
+            { name: 'Récup Inter-bloc', dur: 300, pct: 0.5 }
           ]).flat(),
-          { name: 'Transition', dur: 240, pct: 0.55 },
-          ...Array(8).fill([
-            { name: 'Attaque', dur: 30, pct: 1.25 },
-            { name: 'Récup', dur: 30, pct: 0.5 }
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
+        ]
+      },
+      {
+        id: 'vo2_max_5x3',
+        title: 'VO2 Max (5x 3 min)',
+        desc: 'Augmentation de la PMA. 3 minutes d\'effort à 115% FTP suivies de 3 minutes de récupération.',
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          ...Array(5).fill([
+            { name: 'Effort VO2 Max', dur: 180, pct: 1.15 },
+            { name: 'Récupération', dur: 180, pct: 0.5 }
+          ]).flat(),
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
+        ]
+      },
+      {
+        id: 'hiit_3030',
+        title: 'HIIT Micro-intervalles 30/30',
+        desc: '2 séries de 10 répétitions courtes mais intenses (30s à 130% / 30s à 50%).',
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          ...Array(10).fill([
+            { name: 'Sprint', dur: 30, pct: 1.30 },
+            { name: 'Repos', dur: 30, pct: 0.5 }
+          ]).flat(),
+          { name: 'Transition', dur: 300, pct: 0.5 },
+          ...Array(10).fill([
+            { name: 'Sprint', dur: 30, pct: 1.30 },
+            { name: 'Repos', dur: 30, pct: 0.5 }
+          ]).flat(),
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
+        ]
+      },
+      {
+        id: 'force',
+        title: 'Force sous-cadence (4x 5 min)',
+        desc: 'Travail musculaire à 85% FTP. Pédalez volontairement à basse cadence (55-60 RPM) pendant l\'effort.',
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          ...Array(4).fill([
+            { name: 'Bloc Force (55 RPM)', dur: 300, pct: 0.85 },
+            { name: 'Vélocité souple (100 RPM)', dur: 180, pct: 0.55 }
           ]).flat(),
           { name: 'Retour au calme', dur: 300, pct: 0.5 }
         ]
       }
     ];
 
-    let selectedWorkout = WORKOUTS[1];
+    let selectedWorkout = WORKOUTS[2];
     let isRunning = false;
     let timer = null;
     let currentStepIndex = 0;
@@ -438,11 +486,9 @@
 
     // --- INTERFACE NAVIGATION ---
     function switchTab(tabId) {
-      // Retire la classe active partout
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
       
-      // Applique au tab ciblé de façon sécurisée (sans utiliser event.target)
       document.getElementById('nav-' + tabId).classList.add('active');
       document.getElementById('view-' + tabId).classList.add('active');
       
@@ -521,7 +567,6 @@
         await bikeDataChar.startNotifications();
         bikeDataChar.addEventListener('characteristicvaluechanged', handleBikeData);
 
-        // Demande de contrôle (OpCode 0x00)
         await controlPointChar.writeValue(new Uint8Array([0x00]));
 
         document.getElementById('btBadge').classList.add('connected');
@@ -619,7 +664,7 @@
     function stopRide() {
       pauseRide();
       saveCompletedSession();
-      alert('Entraînement terminé ! Vos statistiques sont prêtes dans l\'onglet Analyse.');
+      alert('Entraînement terminé ! Vos statistiques sont prêtes dans l'onglet Analyse.');
       switchTab('analytics');
       resetRide();
     }
