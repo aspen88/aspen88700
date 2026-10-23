@@ -1,1363 +1,634 @@
 <!DOCTYPE html>
-<html lang="fr" class="dark">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>RidePulse - Entraîneur Connecté & Garmin Sync</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            z1: '#94a3b8', // Récupération (Gris)
-            z2: '#38bdf8', // Endurance Z2 (Bleu ciel)
-            z3: '#4ade80', // Tempo Z3 (Vert)
-            z4: '#facc15', // Seuil Z4 (Jaune)
-            z5: '#fb923c', // VO2 Max Z5 (Orange)
-            z6: '#f87171', // Anaérobie Z6 (Rouge)
-          }
-        }
-      }
-    }
-  </script>
+  <title>RideTrainer Cockpit & Analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #131b2e;
+      --card-border: #1e293b;
+      --accent: #22d3ee;
+      --accent-glow: rgba(34, 211, 238, 0.25);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --z1: #94a3b8;
+      --z2: #38bdf8;
+      --z3: #22c55e;
+      --z4: #eab308;
+      --z5: #f97316;
+      --z6: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
       user-select: none;
     }
-    /* Masquer la barre de défilement */
-    ::-webkit-scrollbar { display: none; }
-    * { -ms-overflow-style: none; scrollbar-width: none; }
+
+    header {
+      background: rgba(19, 27, 46, 0.85);
+      backdrop-filter: blur(12px);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #1e293b;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+    .status-badge.connected { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    /* Navigation Tabs */
+    .nav-tabs {
+      display: flex;
+      background: #0f172a;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .nav-tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .nav-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: rgba(34, 211, 238, 0.05);
+    }
+
+    .view-container { display: none; padding: 16px; flex-direction: column; gap: 16px; flex: 1; }
+    .view-container.active { display: flex; }
+
+    /* Cockpit View */
+    .cockpit-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric-card.full-width { grid-column: span 2; }
+    .metric-title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .metric-val { font-family: 'Chakra Petch', sans-serif; font-size: 2.8rem; font-weight: 700; line-height: 1.1; margin-top: 4px; }
+    .metric-unit { font-size: 0.85rem; color: var(--text-muted); margin-left: 4px; font-family: 'Inter', sans-serif; font-weight: 400; }
+    .metric-sub { font-size: 0.8rem; color: var(--accent); margin-top: 4px; font-weight: 500; }
+
+    .power-card {
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .power-val { font-size: 4rem; text-align: center; color: var(--text); }
+    .power-target { text-align: center; font-size: 1rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* Progress & Interval Banner */
+    .interval-banner {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .interval-info { display: flex; flex-direction: column; gap: 2px; }
+    .interval-title { font-weight: 600; font-size: 0.95rem; }
+    .interval-next { font-size: 0.75rem; color: var(--text-muted); }
+    .interval-time { font-family: 'Chakra Petch', sans-serif; font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+
+    /* Controls */
+    .controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: auto; }
+    .btn {
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent-glow); }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-secondary { background: #1e293b; color: var(--text); border: 1px solid #334155; }
+    .btn-full { grid-column: span 2; }
+
+    /* Workouts Selector */
+    .workout-list { display: flex; flex-direction: column; gap: 10px; }
+    .workout-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px;
+      cursor: pointer;
+      transition: border 0.2s;
+    }
+    .workout-card.selected { border-color: var(--accent); background: rgba(34, 211, 238, 0.05); }
+    .workout-card-title { font-weight: 600; font-size: 1rem; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .workout-card-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.3; }
+
+    /* Analytics View */
+    .analytics-summary {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .stat-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .stat-box-title { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+    .stat-box-val { font-family: 'Chakra Petch', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--text); margin-top: 4px; }
+
+    /* Zone Distribution Bars */
+    .zone-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .zone-row { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; }
+    .zone-label { width: 30px; font-weight: 600; }
+    .zone-track { flex: 1; height: 10px; background: #1e293b; border-radius: 999px; overflow: hidden; }
+    .zone-fill { height: 100%; border-radius: 999px; width: 0%; transition: width 0.5s; }
+    .zone-time { width: 45px; text-align: right; color: var(--text-muted); }
+
+    /* Sessions History */
+    .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .history-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased overflow-x-hidden pb-10">
+<body>
 
-  <!-- Header & État de Connexion -->
-  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-30 px-4 py-3 flex items-center justify-between shadow-md">
-    <div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center font-black text-black text-lg shadow-sm">
-        <i class="fa-solid fa-bolt"></i>
-      </div>
-      <div>
-        <h1 class="text-base font-extrabold tracking-tight leading-none text-white">RidePulse</h1>
-        <span class="text-[10px] text-slate-400 font-medium">Smart Trainer FTMS & Garmin</span>
-      </div>
+  <header>
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 9l3-3 3 4.5 4 1"/></svg>
+      RideTrainer
     </div>
-
-    <!-- Statut BT / Démo -->
-    <div class="flex items-center gap-2">
-      <button id="btn-toggle-demo" class="px-2.5 py-1 text-xs rounded-full border border-slate-700 bg-slate-800 text-slate-300 active:scale-95 transition-all">
-        <i class="fa-solid fa-vial mr-1 text-sky-400"></i><span id="demo-indicator">Mode Démo : OFF</span>
-      </button>
-
-      <button id="btn-connect-bt" class="px-3 py-1 text-xs font-semibold rounded-full border border-orange-500/30 bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 flex items-center gap-1.5 active:scale-95 transition-all shadow-sm">
-        <i class="fa-brands fa-bluetooth-b text-orange-400" id="bt-icon"></i>
-        <span id="bt-status-text">Connecter Trainer</span>
-      </button>
+    <div class="status-badge" id="btBadge">
+      <div class="status-dot"></div>
+      <span id="btStatus">Déconnecté</span>
     </div>
   </header>
 
-  <!-- Notification Toast -->
-  <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-slate-800/95 border border-slate-700 text-white text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-10px]">
-    <i id="toast-icon" class="fa-solid fa-info-circle text-orange-400"></i>
-    <span id="toast-text">Message</span>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchTab('cockpit')">Cockpit</div>
+    <div class="nav-tab" onclick="switchTab('workouts')">Séances</div>
+    <div class="nav-tab" onclick="switchTab('analytics')">Analyse</div>
   </div>
 
-  <main class="flex-1 max-w-xl w-full mx-auto p-3 flex flex-col gap-4">
-
-    <!-- Onglets Mode : Bibliothèque / Cockpit Actif / Éditeur / Synchronisation -->
-    <div class="grid grid-cols-3 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-medium">
-      <button id="tab-library" class="py-2 rounded-lg text-center font-bold bg-orange-500 text-black shadow-sm transition">
-        <i class="fa-solid fa-list-check mr-1"></i>Séances
-      </button>
-      <button id="tab-cockpit" class="py-2 rounded-lg text-center text-slate-400 hover:text-white transition">
-        <i class="fa-solid fa-gauge-high mr-1"></i>Cockpit
-      </button>
-      <button id="tab-history" class="py-2 rounded-lg text-center text-slate-400 hover:text-white transition">
-        <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Garmin
-      </button>
+  <!-- VUE 1 : COCKPIT -->
+  <main class="view-container active" id="view-cockpit">
+    <div class="interval-banner">
+      <div class="interval-info">
+        <div class="interval-title" id="intervalTitle">Échauffement</div>
+        <div class="interval-next" id="intervalNext">Suivant : 5m @ 180W</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="intervalProgress"></div>
+        </div>
+      </div>
+      <div class="interval-time" id="intervalTime">05:00</div>
     </div>
 
-    <!-- ============================================== -->
-    <!-- SECTION 1 : BIBLIOTHÈQUE DES ENTRAÎNEMENTS & FTP -->
-    <!-- ============================================== -->
-    <section id="view-library" class="space-y-4">
-      <!-- Réglage FTP avec sauvegarde locale et ajustement rapide -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm flex items-center justify-between">
-        <div>
-          <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Votre FTP de référence</span>
-          <div class="text-[11px] text-slate-500">Ajuste instantanément les watts de chaque bloc</div>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <button id="btn-ftp-minus" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold active:scale-95 transition">-5</button>
-          <div class="flex items-center gap-1">
-            <input type="number" id="input-ftp" min="80" max="550" value="220" class="w-16 bg-slate-950 border border-slate-700 rounded-xl px-2 py-1.5 text-center font-black text-xl text-orange-400 focus:outline-none focus:border-orange-500">
-            <span class="font-bold text-slate-400 text-xs">W</span>
-          </div>
-          <button id="btn-ftp-plus" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold active:scale-95 transition">+5</button>
-        </div>
+    <div class="cockpit-grid">
+      <div class="metric-card full-width power-card">
+        <span class="metric-title">Puissance Instantanée</span>
+        <div class="power-val" id="valPower">0<span class="metric-unit">W</span></div>
+        <div class="power-target" id="valTarget">Cible : 140 W (Mode ERG)</div>
       </div>
 
-      <!-- Filtres par catégorie -->
-      <div class="flex gap-1.5 overflow-x-auto pb-1" id="category-filters">
-        <button data-cat="all" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-orange-500 text-black">Tous</button>
-        <button data-cat="ftp" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">Tests FTP</button>
-        <button data-cat="sweetspot" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">Sweet Spot & Seuil</button>
-        <button data-cat="vo2" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">VO2 Max & HIIT</button>
-        <button data-cat="endurance" class="cat-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">Endurance & Force</button>
+      <div class="metric-card">
+        <span class="metric-title">Cadence</span>
+        <div class="metric-val" id="valCadence">0<span class="metric-unit">RPM</span></div>
+        <span class="metric-sub" id="subCadence">Moy : 0 RPM</span>
       </div>
 
-      <!-- Liste des entraînements prédéfinis -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between px-1">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Catalogue des séances</h2>
-          <span class="text-xs text-orange-400 cursor-pointer hover:underline" id="btn-custom-workout">
-            <i class="fa-solid fa-plus-circle mr-1"></i>Personnalisé
-          </span>
-        </div>
-
-        <div id="workout-list" class="space-y-2.5">
-          <!-- Injecté dynamiquement par JS -->
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================================== -->
-    <!-- SECTION 2 : COCKPIT ACTIF ENTRAÎNEMENT         -->
-    <!-- ============================================== -->
-    <section id="view-cockpit" class="hidden flex-col gap-3">
-      
-      <!-- Bandeau Titre de la Séance & Progression -->
-      <div class="bg-slate-900/80 border border-slate-800/80 p-3 rounded-2xl flex items-center justify-between">
-        <div>
-          <div class="text-xs text-orange-400 font-bold uppercase tracking-wider" id="active-workout-name">Séance en cours</div>
-          <div class="text-[11px] text-slate-400">
-            Bloc <span id="current-interval-index" class="text-white font-bold">1</span>/<span id="total-intervals-count" class="text-white">5</span> : 
-            <span id="current-interval-label" class="text-slate-300">Échauffement</span>
-          </div>
-          <div class="text-[10px] text-slate-500 mt-0.5" id="next-interval-preview">Suivant : --</div>
-        </div>
-        <div class="text-right">
-          <div class="text-lg font-black text-white font-mono" id="time-remaining-interval">00:00</div>
-          <div class="text-[10px] text-slate-400">Total : <span id="time-total-workout">00:00</span></div>
-        </div>
+      <div class="metric-card">
+        <span class="metric-title">Cardio</span>
+        <div class="metric-val" id="valHR">--<span class="metric-unit">BPM</span></div>
+        <span class="metric-sub" id="subHR">Max : --</span>
       </div>
 
-      <!-- Graphique de profil de puissance avec indicateur de position -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 relative overflow-hidden">
-        <div class="flex justify-between items-center text-[10px] text-slate-400 mb-1">
-          <span>Profil & Cibles ERG</span>
-          <span id="interval-zone-tag" class="px-2 py-0.5 rounded-full font-bold text-black bg-amber-400">Z3 Tempo</span>
-        </div>
-        <div class="relative w-full h-24 bg-slate-950 rounded-lg overflow-hidden flex items-end" id="workout-graph-container">
-          <!-- Barres de l'entraînement générées en JS -->
-          <div id="workout-bars" class="absolute inset-0 flex items-end w-full h-full"></div>
-          <!-- Ligne de position de course -->
-          <div id="graph-progress-needle" class="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_8px_#ffffff] z-10 transition-all duration-300" style="left: 0%;"></div>
-        </div>
+      <div class="metric-card">
+        <span class="metric-title">Chrono Total</span>
+        <div class="metric-val" id="valTotalTime" style="font-size: 2.2rem;">00:00</div>
+        <span class="metric-sub" id="subWork">0 kJ</span>
       </div>
 
-      <!-- Résultat Spécifique Test FTP (Affiché à la fin du Ramp Test ou 20min) -->
-      <div id="ftp-result-banner" class="hidden bg-gradient-to-r from-emerald-950 to-slate-900 border border-emerald-500/40 rounded-2xl p-3 text-center space-y-1.5 shadow-lg">
-        <div class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1.5">
-          <i class="fa-solid fa-trophy"></i> Nouvelle FTP Estimée !
-        </div>
-        <div class="text-2xl font-black text-white font-mono" id="calculated-ftp-value">245 W</div>
-        <div class="text-[11px] text-slate-400" id="ftp-calculation-details">Calculée à partir de votre dernière minute complétée.</div>
-        <button id="btn-apply-ftp" class="mt-1 px-4 py-1.5 rounded-xl bg-emerald-500 text-black font-extrabold text-xs active:scale-95 transition">
-          Mettre à jour ma FTP
-        </button>
+      <div class="metric-card">
+        <span class="metric-title">Puissance Normalisée (NP)</span>
+        <div class="metric-val" id="valNP" style="font-size: 2.2rem;">0<span class="metric-unit">W</span></div>
+        <span class="metric-sub" id="valIF">IF : 0.00</span>
       </div>
+    </div>
 
-      <!-- GRAND DISPLAY PRINCIPAL : PUISSANCE (W) -->
-      <div class="bg-slate-900 border-2 border-slate-800 rounded-3xl p-5 text-center relative overflow-hidden shadow-xl" id="box-power-hud">
-        <div class="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-widest px-2">
-          <span>Puissance Actuelle</span>
-          <span class="flex items-center gap-1.5 text-orange-400">
-            <span class="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-            <span id="target-mode-label">CIBLE ERG:</span> <strong id="target-power-display" class="text-white text-sm">180 W</strong>
-          </span>
-        </div>
-
-        <div class="my-1 flex items-baseline justify-center gap-2">
-          <span id="current-power-display" class="text-7xl font-black tracking-tighter text-white font-mono">0</span>
-          <span class="text-xl font-bold text-slate-500">WATTS</span>
-        </div>
-
-        <!-- Delta Target ERG -->
-        <div class="text-xs font-semibold" id="power-delta-container">
-          <span id="power-delta" class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-400">Écart : 0 W</span>
-        </div>
-      </div>
-
-      <!-- TÉLÉMÉTRIE SECONDAIRE : CADENCE / RYTHME / DISTANCE / KCAL -->
-      <div class="grid grid-cols-3 gap-2">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
-          <div class="text-[10px] text-slate-400 font-bold uppercase"><i class="fa-solid fa-rotate mr-1 text-emerald-400"></i>Cadence</div>
-          <div class="text-2xl font-black text-white font-mono mt-0.5" id="cadence-display">--</div>
-          <div class="text-[9px] text-slate-500">RPM</div>
-        </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
-          <div class="text-[10px] text-slate-400 font-bold uppercase"><i class="fa-solid fa-heart-pulse mr-1 text-rose-500"></i>Cardio</div>
-          <div class="text-2xl font-black text-white font-mono mt-0.5" id="hr-display">--</div>
-          <div class="text-[9px] text-slate-500">BPM</div>
-        </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
-          <div class="text-[10px] text-slate-400 font-bold uppercase"><i class="fa-solid fa-gauge mr-1 text-sky-400"></i>Vitesse</div>
-          <div class="text-2xl font-black text-white font-mono mt-0.5" id="speed-display">0.0</div>
-          <div class="text-[9px] text-slate-500">KM/H</div>
-        </div>
-      </div>
-
-      <!-- Commandes de l'entraînement actif -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-3">
-        <!-- Ajustement d'intensité du workout (+ / - 5%) -->
-        <div class="flex items-center justify-between px-2">
-          <span class="text-xs text-slate-400 font-medium">Biais d'intensité globale :</span>
-          <div class="flex items-center gap-2">
-            <button id="btn-intensity-down" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center justify-center border border-slate-700 active:scale-95">-5%</button>
-            <span id="intensity-bias-label" class="text-sm font-black text-orange-400 font-mono w-12 text-center">100%</span>
-            <button id="btn-intensity-up" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center justify-center border border-slate-700 active:scale-95">+5%</button>
-          </div>
-        </div>
-
-        <!-- Boutons d'action principaux -->
-        <div class="grid grid-cols-3 gap-2">
-          <button id="btn-toggle-workout" class="col-span-2 py-3.5 px-4 rounded-xl font-black text-sm bg-gradient-to-r from-orange-500 to-amber-500 text-black flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 active:scale-95 transition-all">
-            <i class="fa-solid fa-play" id="play-pause-icon"></i>
-            <span id="play-pause-text">DÉMARRER</span>
-          </button>
-          <button id="btn-skip-interval" class="py-3.5 px-3 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-1 active:scale-95 transition-all">
-            <i class="fa-solid fa-forward-step"></i> Sauter
-          </button>
-        </div>
-
-        <button id="btn-stop-workout" class="w-full py-2.5 rounded-xl font-semibold text-xs text-red-400 hover:bg-red-500/10 border border-red-500/20 active:scale-95 transition">
-          <i class="fa-solid fa-flag-checkered mr-1"></i> Terminer la séance & Enregistrer
-        </button>
-      </div>
-
-    </section>
-
-    <!-- ============================================== -->
-    <!-- SECTION 3 : HISTORIQUE & EXPORT GARMIN CONNECT -->
-    <!-- ============================================== -->
-    <section id="view-history" class="hidden space-y-4">
-      
-      <!-- Encadré Guide Garmin -->
-      <div class="bg-gradient-to-br from-slate-900 to-sky-950/40 border border-sky-800/40 rounded-2xl p-4 shadow-sm">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/30 text-sky-400 flex items-center justify-center text-lg">
-            <i class="fa-solid fa-cloud-arrow-up"></i>
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-white">Import direct Garmin Connect</h3>
-            <p class="text-xs text-slate-400">Fichiers .TCX standardisés avec Watts, Cadence & Cardio</p>
-          </div>
-        </div>
-
-        <div class="mt-3 p-3 bg-slate-950/70 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
-          <p><strong>Comment importer sur votre compte Garmin :</strong></p>
-          <ol class="list-decimal list-inside space-y-1 text-slate-400">
-            <li>Téléchargez le fichier <code class="text-sky-300">.TCX</code> ci-dessous.</li>
-            <li>Ouvrez la page Garmin Import : <a href="https://connect.garmin.com/modern/import-data" target="_blank" class="text-orange-400 underline font-semibold">connect.garmin.com/modern/import-data</a></li>
-            <li>Glissez ou sélectionnez le fichier exporté. Votre séance apparaît instantanément !</li>
-          </ol>
-        </div>
-      </div>
-
-      <!-- Résumé de la dernière séance terminée -->
-      <div id="latest-session-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Dernière activité enregistrée</span>
-          <span id="session-date" class="text-[11px] text-slate-500">Aucune séance</span>
-        </div>
-
-        <div id="session-summary-content" class="text-center py-6 text-slate-500 text-xs">
-          <i class="fa-solid fa-bicycle text-3xl mb-2 text-slate-600"></i>
-          <p>Aucune séance terminée pour le moment.</p>
-          <p class="text-[11px] text-slate-600 mt-1">Démarrez un entraînement depuis le Cockpit pour enregistrer vos données.</p>
-        </div>
-      </div>
-    </section>
-
+    <div class="controls">
+      <button class="btn btn-secondary btn-full" id="btnConnect" onclick="toggleConnect()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5M12 2v20M12 2l5 5-5 5M12 12l5 5-5 5"/></svg>
+        Connecter Home Trainer FTMS
+      </button>
+      <button class="btn btn-primary" id="btnStart" onclick="toggleRide()">Démarrer</button>
+      <button class="btn btn-secondary" onclick="adjustTarget(5)">+5W</button>
+      <button class="btn btn-secondary" onclick="adjustTarget(-5)">-5W</button>
+      <button class="btn btn-danger" onclick="stopRide()">Arrêter</button>
+    </div>
   </main>
 
-  <!-- Modal Éditeur d'entraînement personnalisé -->
-  <div id="modal-custom-workout" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-5 space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="font-bold text-white text-base">Créer un entraînement</h3>
-        <button id="btn-close-modal" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
-      </div>
-
-      <div class="space-y-3 overflow-y-auto flex-1 pr-1">
-        <div>
-          <label class="text-xs text-slate-400 font-semibold block mb-1">Nom de la séance</label>
-          <input type="text" id="custom-name" value="Mon Fractionné Custom" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500">
-        </div>
-
-        <div>
-          <label class="text-xs text-slate-400 font-semibold block mb-1">Intervalles (Nom, Durée en sec, % FTP)</label>
-          <div id="custom-intervals-container" class="space-y-2">
-            <!-- Intervalles éditables ajoutés ici -->
-          </div>
-          <button id="btn-add-interval" class="mt-2 text-xs text-orange-400 font-bold hover:underline flex items-center gap-1">
-            <i class="fa-solid fa-plus"></i> Ajouter un intervalle
-          </button>
-        </div>
-      </div>
-
-      <div class="pt-3 border-t border-slate-800 flex gap-2">
-        <button id="btn-cancel-custom" class="w-1/2 py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Annuler</button>
-        <button id="btn-save-custom" class="w-1/2 py-2.5 rounded-xl text-xs font-bold bg-orange-500 text-black">Enregistrer & Charger</button>
+  <!-- VUE 2 : CATALOGUE DE SÉANCES -->
+  <section class="view-container" id="view-workouts">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h3 style="font-size:1.1rem; font-weight:700;">Votre FTP de référence</h3>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input type="number" id="inputFTP" value="200" style="width:70px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; padding:6px; font-weight:700; text-align:center;" onchange="saveFTP()">
+        <span style="font-size:0.85rem; font-weight:600;">W</span>
       </div>
     </div>
-  </div>
+
+    <div class="workout-list" id="workoutListContainer"></div>
+  </section>
+
+  <!-- VUE 3 : ANALYSE & HISTORIQUE -->
+  <section class="view-container" id="view-analytics">
+    <h3 style="font-size:1.1rem; font-weight:700;">Dernière Séance Réalisée</h3>
+    
+    <div class="analytics-summary">
+      <div class="stat-box">
+        <div class="stat-box-title">Puissance Moyenne</div>
+        <div class="stat-box-val" id="anAvgPower">-- <span style="font-size:0.8rem;">W</span></div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-title">Normalized Power (NP)</div>
+        <div class="stat-box-val" id="anNP">-- <span style="font-size:0.8rem;">W</span></div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-title">Intensity Factor (IF)</div>
+        <div class="stat-box-val" id="anIF">--</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-title">Training Stress Score (TSS)</div>
+        <div class="stat-box-val" id="anTSS">--</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-title">Travail Total</div>
+        <div class="stat-box-val" id="anWork">-- <span style="font-size:0.8rem;">kJ</span></div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-title">Cadence Moyenne</div>
+        <div class="stat-box-val" id="anCadence">-- <span style="font-size:0.8rem;">RPM</span></div>
+      </div>
+    </div>
+
+    <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px; padding:14px;">
+      <div class="stat-box-title" style="margin-bottom:6px;">Distribution du Temps par Zone de Puissance</div>
+      <div class="zone-bars">
+        <div class="zone-row"><span class="zone-label" style="color:var(--z1)">Z1</span><div class="zone-track"><div class="zone-fill" id="barZ1" style="background:var(--z1)"></div></div><span class="zone-time" id="timeZ1">0m</span></div>
+        <div class="zone-row"><span class="zone-label" style="color:var(--z2)">Z2</span><div class="zone-track"><div class="zone-fill" id="barZ2" style="background:var(--z2)"></div></div><span class="zone-time" id="timeZ2">0m</span></div>
+        <div class="zone-row"><span class="zone-label" style="color:var(--z3)">Z3</span><div class="zone-track"><div class="zone-fill" id="barZ3" style="background:var(--z3)"></div></div><span class="zone-time" id="timeZ3">0m</span></div>
+        <div class="zone-row"><span class="zone-label" style="color:var(--z4)">Z4</span><div class="zone-track"><div class="zone-fill" id="barZ4" style="background:var(--z4)"></div></div><span class="zone-time" id="timeZ4">0m</span></div>
+        <div class="zone-row"><span class="zone-label" style="color:var(--z5)">Z5</span><div class="zone-track"><div class="zone-fill" id="barZ5" style="background:var(--z5)"></div></div><span class="zone-time" id="timeZ5">0m</span></div>
+        <div class="zone-row"><span class="zone-label" style="color:var(--z6)">Z6</span><div class="zone-track"><div class="zone-fill" id="barZ6" style="background:var(--z6)"></div></div><span class="zone-time" id="timeZ6">0m</span></div>
+      </div>
+    </div>
+
+    <div class="controls" style="margin-top:0;">
+      <button class="btn btn-primary" onclick="exportTCX()">Télécharger Fichier TCX</button>
+      <button class="btn btn-secondary" onclick="window.open('https://connect.garmin.com/modern/import-data','_blank')">Ouvrir Garmin Import</button>
+    </div>
+
+    <h4 style="font-size:0.95rem; font-weight:700; margin-top:10px;">Historique Local</h4>
+    <div class="history-list" id="historyContainer"></div>
+  </section>
 
   <script>
-    /* =====================================================================
-     * LOGIQUE DE L'APPLICATION (FTMS, SÉANCES, TCX EXPORT, MOCK SIMULATOR)
-     * ===================================================================== */
+    // --- WORKOUTS DATA ---
+    let ftp = parseInt(localStorage.getItem('user_ftp')) || 200;
+    document.getElementById('inputFTP').value = ftp;
 
-    // 1. DÉFINITION DES ZONES COGGAN (Calculées en % de la FTP)
-    function getZone(percentFtp) {
-      if (percentFtp < 55) return { name: 'Z1 Récup', color: '#94a3b8' };
-      if (percentFtp < 75) return { name: 'Z2 Endurance', color: '#38bdf8' };
-      if (percentFtp < 90) return { name: 'Z3 Tempo', color: '#4ade80' };
-      if (percentFtp < 105) return { name: 'Z4 Seuil', color: '#facc15' };
-      if (percentFtp < 120) return { name: 'Z5 VO2 Max', color: '#fb923c' };
-      return { name: 'Z6 Anaérobie', color: '#f87171' };
-    }
-
-    // Générateur d'intervalles du Ramp Test (+20W chaque minute jusqu'à épuisement)
-    function generateRampTestIntervals() {
-      const steps = [
-        { name: 'Échauffement doux', duration: 300, pct: 45, fixedWatts: 100 },
-        { name: 'Palier 1', duration: 60, fixedWatts: 120 },
-        { name: 'Palier 2', duration: 60, fixedWatts: 140 },
-        { name: 'Palier 3', duration: 60, fixedWatts: 160 },
-        { name: 'Palier 4', duration: 60, fixedWatts: 180 },
-        { name: 'Palier 5', duration: 60, fixedWatts: 200 },
-        { name: 'Palier 6', duration: 60, fixedWatts: 220 },
-        { name: 'Palier 7', duration: 60, fixedWatts: 240 },
-        { name: 'Palier 8', duration: 60, fixedWatts: 260 },
-        { name: 'Palier 9', duration: 60, fixedWatts: 280 },
-        { name: 'Palier 10', duration: 60, fixedWatts: 300 },
-        { name: 'Palier 11', duration: 60, fixedWatts: 320 },
-        { name: 'Palier 12', duration: 60, fixedWatts: 340 },
-        { name: 'Palier 13', duration: 60, fixedWatts: 360 },
-        { name: 'Palier 14', duration: 60, fixedWatts: 380 },
-        { name: 'Palier 15', duration: 60, fixedWatts: 400 },
-        { name: 'Palier 16', duration: 60, fixedWatts: 420 },
-        { name: 'Palier 17', duration: 60, fixedWatts: 440 },
-        { name: 'Palier 18', duration: 60, fixedWatts: 460 },
-        { name: 'Retour au calme', duration: 300, pct: 45, fixedWatts: 100 }
-      ];
-      return steps.map(s => ({
-        ...s,
-        pct: s.pct || Math.round((s.fixedWatts / 220) * 100)
-      }));
-    }
-
-    // 2. BIBLIOTHÈQUE D'ENTRAÎNEMENTS STRUCTURÉS COMPLÈTE
-    const WORKOUT_TEMPLATES = [
-      // CATEGORIE : TESTS FTP
+    const WORKOUTS = [
       {
-        id: 'ramp-test',
-        category: 'ftp',
-        isFtpTest: 'ramp',
-        name: 'Test FTP en Rampe (+20W / min)',
-        desc: 'Protocole progressif standard jusqu’à rupture. Votre nouvelle FTP est calculée à 75% du dernier palier complété.',
-        intervals: generateRampTestIntervals()
-      },
-      {
-        id: 'ftp-test-20',
-        category: 'ftp',
-        isFtpTest: '20min',
-        name: 'Test FTP 20 Minutes (Standard)',
-        desc: 'Échauffement complet, déblocage 5min, puis 20 min All-Out en résistance libre (FTP = 95% des 20min).',
+        id: 'ramp_ftp',
+        title: 'Test FTP en Rampe (+20W/min)',
+        desc: 'Échauffement 5 min puis paliers de +20W toutes les minutes jusqu\'à rupture. Calcul automatique.',
         intervals: [
-          { name: 'Échauffement progressif', duration: 600, pct: 60 },
-          { name: 'Déblocage aérobie', duration: 300, pct: 105 },
-          { name: 'Récupération active', duration: 600, pct: 55 },
-          { name: 'TEST 20 MIN ALL-OUT', duration: 1200, pct: 100, freeResistance: true },
-          { name: 'Retour au calme', duration: 600, pct: 50 }
-        ]
-      },
-
-      // CATEGORIE : SWEET SPOT & SEUIL
-      {
-        id: 'sweet-spot-2x15',
-        category: 'sweetspot',
-        name: 'Sweet Spot (2 x 15 min)',
-        desc: 'Blocs prolongés à 88-92% FTP pour développer la résistance aérobie sans épuisement du système nerveux.',
-        intervals: [
-          { name: 'Échauffement', duration: 420, pct: 60 },
-          { name: 'Rampe préparatoire', duration: 180, pct: 75 },
-          { name: 'Bloc Sweet Spot 1', duration: 900, pct: 90 },
-          { name: 'Récupération', duration: 300, pct: 55 },
-          { name: 'Bloc Sweet Spot 2', duration: 900, pct: 90 },
-          { name: 'Retour au calme', duration: 300, pct: 50 }
+          { name: 'Échauffement', dur: 300, pct: 0.5 },
+          { name: 'Palier 1', dur: 60, pct: 0.6 },
+          { name: 'Palier 2', dur: 60, pct: 0.7 },
+          { name: 'Palier 3', dur: 60, pct: 0.8 },
+          { name: 'Palier 4', dur: 60, pct: 0.9 },
+          { name: 'Palier 5', dur: 60, pct: 1.0 },
+          { name: 'Palier 6', dur: 60, pct: 1.1 },
+          { name: 'Palier 7', dur: 60, pct: 1.2 },
+          { name: 'Palier 8', dur: 60, pct: 1.3 },
+          { name: 'Palier 9', dur: 60, pct: 1.4 }
         ]
       },
       {
-        id: 'over-under-threshold',
-        category: 'sweetspot',
-        name: 'Seuil Over-Under (3 blocs de 3x)',
-        desc: 'Apprend au corps à recycler les lactates : alternance 2 min à 95% FTP (Under) et 1 min à 105% FTP (Over).',
+        id: 'sweet_spot',
+        title: 'Sweet Spot (2x12 min @ 90%)',
+        desc: 'Amélioration de l\'endurance aérobie et de la puissance sans fatigue excessive.',
         intervals: [
-          { name: 'Échauffement', duration: 480, pct: 60 },
-          // Bloc 1
-          { name: 'Under (Seuil -)', duration: 120, pct: 95 },
-          { name: 'Over (Seuil +)', duration: 60, pct: 105 },
-          { name: 'Under (Seuil -)', duration: 120, pct: 95 },
-          { name: 'Over (Seuil +)', duration: 60, pct: 105 },
-          { name: 'Under (Seuil -)', duration: 120, pct: 95 },
-          { name: 'Over (Seuil +)', duration: 60, pct: 105 },
-          { name: 'Récupération active', duration: 240, pct: 55 },
-          // Bloc 2
-          { name: 'Under (Seuil -)', duration: 120, pct: 95 },
-          { name: 'Over (Seuil +)', duration: 60, pct: 105 },
-          { name: 'Under (Seuil -)', duration: 120, pct: 95 },
-          { name: 'Over (Seuil +)', duration: 60, pct: 105 },
-          { name: 'Under (Seuil -)', duration: 120, pct: 95 },
-          { name: 'Over (Seuil +)', duration: 60, pct: 105 },
-          { name: 'Retour au calme', duration: 300, pct: 50 }
-        ]
-      },
-
-      // CATEGORIE : VO2 MAX & HIIT
-      {
-        id: 'vo2-max-5x3',
-        category: 'vo2',
-        name: 'VO2 Max Classique (5 x 3 min)',
-        desc: 'Intervalles ciblés à 118% FTP avec 3 min de récupération active. Idéal pour repousser son plafond de VO2.',
-        intervals: [
-          { name: 'Échauffement', duration: 480, pct: 60 },
-          { name: 'Bloc VO2 1/5', duration: 180, pct: 118 },
-          { name: 'Récupération', duration: 180, pct: 50 },
-          { name: 'Bloc VO2 2/5', duration: 180, pct: 118 },
-          { name: 'Récupération', duration: 180, pct: 50 },
-          { name: 'Bloc VO2 3/5', duration: 180, pct: 118 },
-          { name: 'Récupération', duration: 180, pct: 50 },
-          { name: 'Bloc VO2 4/5', duration: 180, pct: 118 },
-          { name: 'Récupération', duration: 180, pct: 50 },
-          { name: 'Bloc VO2 5/5', duration: 180, pct: 118 },
-          { name: 'Retour au calme', duration: 420, pct: 50 }
+          { name: 'Échauffement', dur: 480, pct: 0.6 },
+          { name: 'Bloc 1', dur: 720, pct: 0.9 },
+          { name: 'Récupération', dur: 300, pct: 0.55 },
+          { name: 'Bloc 2', dur: 720, pct: 0.9 },
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
         ]
       },
       {
-        id: 'hiit-tabata-30-30',
-        category: 'vo2',
-        name: 'Micro-Intervalles 30/30 (2 séries de 10)',
-        desc: 'Efforts courts et violents à 130% FTP avec récupération active pour stimuler le système cardio-vasculaire.',
+        id: 'vo2_max',
+        title: 'VO2 Max 30/30 (2 séries de 8 reps)',
+        desc: 'Intervalles courts à 125% FTP et 50% récupération pour maximiser la consommation d\'O2.',
         intervals: [
-          { name: 'Échauffement progressif', duration: 360, pct: 60 },
-          // Série 1 (5 répétitions représentatives)
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Inter-Série Repos', duration: 240, pct: 50 },
-          // Série 2
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Sprint 30s', duration: 30, pct: 130 }, { name: 'Repos 30s', duration: 30, pct: 50 },
-          { name: 'Retour au calme', duration: 300, pct: 45 }
-        ]
-      },
-
-      // CATEGORIE : ENDURANCE & FORCE
-      {
-        id: 'zone-2-endurance',
-        category: 'endurance',
-        name: 'Endurance Fondamentale Z2 (50 min)',
-        desc: 'Rythme régulier en zone aérobie pure (68-72% FTP). Travaille l’oxydation des lipides et l’endurance de base.',
-        intervals: [
-          { name: 'Mise en route progressive', duration: 360, pct: 55 },
-          { name: 'Croisière Z2 Endurance', duration: 2280, pct: 70 },
-          { name: 'Retour au calme', duration: 360, pct: 50 }
-        ]
-      },
-      {
-        id: 'force-subcadence',
-        category: 'endurance',
-        name: 'Force Sous-Cadence & Vélocité',
-        desc: 'Alternance de travail de force en côte à 55-60 RPM (85% FTP) et de vélocité souple à 105+ RPM (65% FTP).',
-        intervals: [
-          { name: 'Échauffement', duration: 420, pct: 60 },
-          { name: 'Force 55 RPM', duration: 300, pct: 85 },
-          { name: 'Vélocité 105 RPM', duration: 180, pct: 65 },
-          { name: 'Force 55 RPM', duration: 300, pct: 85 },
-          { name: 'Vélocité 105 RPM', duration: 180, pct: 65 },
-          { name: 'Force 55 RPM', duration: 300, pct: 85 },
-          { name: 'Retour au calme', duration: 360, pct: 50 }
+          { name: 'Échauffement', dur: 480, pct: 0.6 },
+          ...Array(6).fill([
+            { name: 'Attaque', dur: 30, pct: 1.25 },
+            { name: 'Récup', dur: 30, pct: 0.5 }
+          ]).flat(),
+          { name: 'Transition', dur: 240, pct: 0.55 },
+          ...Array(6).fill([
+            { name: 'Attaque', dur: 30, pct: 1.25 },
+            { name: 'Récup', dur: 30, pct: 0.5 }
+          ]).flat(),
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
         ]
       }
     ];
 
-    // 3. ÉTAT GLOBAL DE L'APPLICATION
-    const savedFtp = parseInt(localStorage.getItem('ridepulse_user_ftp'), 10);
-    const state = {
-      userFtp: savedFtp && !isNaN(savedFtp) ? savedFtp : 220,
-      activeWorkout: WORKOUT_TEMPLATES[0],
-      currentFilter: 'all',
-      currentIntervalIdx: 0,
-      intervalRemainingSec: 0,
-      totalElapsedSec: 0,
-      isRunning: false,
-      isPaused: false,
-      intensityMultiplier: 1.0, // Multiplicateur +/- 5%
-      
-      // Données spécifiques aux tests FTP
-      lastCompletedRampStepWatts: 0,
-      ftp20minPowers: [],
+    let selectedWorkout = WORKOUTS[1];
+    let isRunning = false;
+    let timer = null;
+    let currentStepIndex = 0;
+    let currentStepRemaining = 0;
+    let totalSeconds = 0;
+    let targetWatts = 0;
+    let wakeLock = null;
 
-      // Métriques en direct
-      currentWatts: 0,
-      targetWatts: 0,
-      currentCadence: 0,
-      currentHeartRate: 0,
-      currentSpeedKmH: 0,
-      totalDistanceKm: 0,
-      totalCalories: 0,
+    // Track records for analytics
+    let sessionData = []; // [{t, p, cad, hr}]
 
-      // Historique des points seconde par seconde pour l'export TCX
-      trackpoints: [],
-      lastRecordedSession: null,
+    // BLE Variables
+    let bleDevice = null;
+    let controlPointChar = null;
 
-      // Bluetooth & Démo
-      demoMode: true,
-      bluetoothDevice: null,
-      controlPointChar: null,
-      indoorBikeDataChar: null
-    };
-
-    let timerInterval = null;
-
-    // Toast helper
-    function showToast(message, iconClass = 'fa-info-circle') {
-      const toast = document.getElementById('toast');
-      const text = document.getElementById('toast-text');
-      const icon = document.getElementById('toast-icon');
-      
-      text.innerText = message;
-      icon.className = `fa-solid ${iconClass} text-orange-400`;
-      
-      toast.classList.remove('opacity-0', 'translate-y-[-10px]', 'pointer-events-none');
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-[-10px]', 'pointer-events-none');
-      }, 3000);
+    function saveFTP() {
+      ftp = parseInt(document.getElementById('inputFTP').value) || 200;
+      localStorage.setItem('user_ftp', ftp);
+      renderWorkouts();
+      updateTargetForCurrentStep();
     }
 
-    // Formatage des secondes en MM:SS
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    // 4. GESTION DES ONGLETS
-    const tabLibrary = document.getElementById('tab-library');
-    const tabCockpit = document.getElementById('tab-cockpit');
-    const tabHistory = document.getElementById('tab-history');
-
-    const viewLibrary = document.getElementById('view-library');
-    const viewCockpit = document.getElementById('view-cockpit');
-    const viewHistory = document.getElementById('view-history');
-
-    function switchTab(viewName) {
-      [viewLibrary, viewCockpit, viewHistory].forEach(v => v.classList.add('hidden'));
-      [tabLibrary, tabCockpit, tabHistory].forEach(t => {
-        t.className = 'py-2 rounded-lg text-center text-slate-400 hover:text-white transition';
-      });
-
-      if (viewName === 'library') {
-        viewLibrary.classList.remove('hidden');
-        tabLibrary.className = 'py-2 rounded-lg text-center font-bold bg-orange-500 text-black shadow-sm transition';
-      } else if (viewName === 'cockpit') {
-        viewCockpit.classList.remove('hidden');
-        tabCockpit.className = 'py-2 rounded-lg text-center font-bold bg-orange-500 text-black shadow-sm transition';
-        renderWorkoutGraph();
-      } else if (viewName === 'history') {
-        viewHistory.classList.remove('hidden');
-        tabHistory.className = 'py-2 rounded-lg text-center font-bold bg-orange-500 text-black shadow-sm transition';
-      }
-    }
-
-    tabLibrary.addEventListener('click', () => switchTab('library'));
-    tabCockpit.addEventListener('click', () => switchTab('cockpit'));
-    tabHistory.addEventListener('click', () => switchTab('history'));
-
-    // 5. RENDU DE LA BIBLIOTHÈQUE D'ENTRAÎNEMENTS & FILTRES
-    function renderWorkoutsList() {
-      const container = document.getElementById('workout-list');
+    function renderWorkouts() {
+      const container = document.getElementById('workoutListContainer');
       container.innerHTML = '';
-
-      const filtered = WORKOUT_TEMPLATES.filter(w => {
-        if (state.currentFilter === 'all') return true;
-        return w.category === state.currentFilter;
-      });
-
-      filtered.forEach(w => {
-        const totalDurationSec = w.intervals.reduce((acc, i) => acc + i.duration, 0);
-        const isSelected = state.activeWorkout.id === w.id;
-
-        const card = document.createElement('div');
-        card.className = `p-3.5 rounded-2xl border transition-all cursor-pointer ${
-          isSelected 
-            ? 'bg-orange-500/10 border-orange-500/50 shadow-md' 
-            : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-        }`;
-
-        const isFtpBadge = w.isFtpTest 
-          ? `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">TEST FTP</span>` 
-          : '';
-
-        card.innerHTML = `
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <h3 class="font-bold text-sm ${isSelected ? 'text-orange-400' : 'text-white'}">${w.name}</h3>
-              ${isFtpBadge}
-            </div>
-            <span class="text-xs font-mono font-semibold text-slate-400">${Math.round(totalDurationSec / 60)} min</span>
+      WORKOUTS.forEach(w => {
+        const div = document.createElement('div');
+        div.className = `workout-card ${w.id === selectedWorkout.id ? 'selected' : ''}`;
+        div.onclick = () => { selectedWorkout = w; renderWorkouts(); resetRide(); };
+        const totalDurMin = Math.round(w.intervals.reduce((a, b) => a + b.dur, 0) / 60);
+        div.innerHTML = `
+          <div class="workout-card-title">
+            <span>${w.title}</span>
+            <span style="color:var(--accent);">${totalDurMin} min</span>
           </div>
-          <p class="text-xs text-slate-400 mt-1">${w.desc}</p>
-          <div class="flex items-center gap-1 mt-2.5 h-2 rounded bg-slate-950 overflow-hidden">
-            ${w.intervals.map(i => {
-              const zone = getZone(i.fixedWatts ? (i.fixedWatts / state.userFtp) * 100 : i.pct);
-              const widthPct = (i.duration / totalDurationSec) * 100;
-              return `<div style="width: ${widthPct}%; background-color: ${zone.color}; height: 100%;"></div>`;
-            }).join('')}
-          </div>
+          <div class="workout-card-desc">${w.desc}</div>
         `;
-
-        card.addEventListener('click', () => {
-          loadWorkout(w);
-          switchTab('cockpit');
-          showToast(`Séance "${w.name}" prête !`, 'fa-check');
-        });
-
-        container.appendChild(card);
+        container.appendChild(div);
       });
     }
 
-    // Gestion des boutons de filtres de catégorie
-    document.querySelectorAll('.cat-pill').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.cat-pill').forEach(b => {
-          b.className = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-slate-900 border border-slate-800 text-slate-400 hover:text-white';
-        });
-        e.target.className = 'cat-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap bg-orange-500 text-black';
-        state.currentFilter = e.target.dataset.cat;
-        renderWorkoutsList();
-      });
-    });
-
-    // Charger une séance
-    function loadWorkout(workout) {
-      state.activeWorkout = workout;
-      state.currentIntervalIdx = 0;
-      state.intervalRemainingSec = workout.intervals[0].duration;
-      state.totalElapsedSec = 0;
-      state.trackpoints = [];
-      state.ftp20minPowers = [];
-      state.lastCompletedRampStepWatts = 0;
-      
-      document.getElementById('ftp-result-banner').classList.add('hidden');
-      updateWorkoutDisplays();
-      renderWorkoutsList();
-    }
-
-    // 6. DESSIN DU PROFIL DE PUISSANCE
-    function renderWorkoutGraph() {
-      const barsContainer = document.getElementById('workout-bars');
-      barsContainer.innerHTML = '';
-      if (!state.activeWorkout) return;
-
-      const totalSec = state.activeWorkout.intervals.reduce((acc, i) => acc + i.duration, 0);
-
-      state.activeWorkout.intervals.forEach((interval, idx) => {
-        const widthPct = (interval.duration / totalSec) * 100;
-        const targetW = interval.fixedWatts || Math.round(state.userFtp * (interval.pct / 100));
-        const heightPct = Math.min(100, Math.max(15, (targetW / (state.userFtp * 1.5)) * 100));
-        const zone = getZone(interval.fixedWatts ? (interval.fixedWatts / state.userFtp) * 100 : interval.pct);
-
-        const bar = document.createElement('div');
-        bar.style.width = `${widthPct}%`;
-        bar.style.height = `${heightPct}%`;
-        bar.style.backgroundColor = zone.color;
-        bar.style.opacity = idx === state.currentIntervalIdx ? '1' : '0.4';
-        bar.className = 'transition-all duration-200 border-r border-slate-950/40 relative';
-        barsContainer.appendChild(bar);
-      });
-      updateGraphNeedle();
-    }
-
-    function updateGraphNeedle() {
-      const totalSec = state.activeWorkout.intervals.reduce((acc, i) => acc + i.duration, 0);
-      const progressPct = totalSec > 0 ? (state.totalElapsedSec / totalSec) * 100 : 0;
-      document.getElementById('graph-progress-needle').style.left = `${Math.min(100, progressPct)}%`;
-    }
-
-    // 7. ENVOI DES COMMANDES FTMS (MODE ERG OU RÉSISTANCE LIBRE)
-    async function sendErgTargetPower(watts) {
-      if (state.controlPointChar) {
-        try {
-          const buffer = new ArrayBuffer(3);
-          const view = new DataView(buffer);
-          view.setUint8(0, 0x05); // OpCode 0x05 = Target Power
-          view.setInt16(1, Math.round(watts), true);
-          await state.controlPointChar.writeValue(buffer);
-          console.log(`[FTMS] ERG envoyé: ${watts} W`);
-        } catch (err) {
-          console.warn('[FTMS] Erreur commande ERG :', err);
-        }
+    function switchTab(tabId) {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(`view-${tabId}`).classList.add('active'); if (tabId === 'analytics') updateAnalyticsUI(); }  // --- WAKE LOCK ANTI-VEILLE --- async function requestWakeLock() { try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (err) { console.warn('Wake Lock non actif:', err); } }  function releaseWakeLock() { if (wakeLock) { wakeLock.release(); wakeLock = null; } }  // --- BLUETOOTH FTMS CONTROL --- async function toggleConnect() { if (bleDevice && bleDevice.gatt.connected) { bleDevice.gatt.disconnect(); return; } try { bleDevice = await navigator.bluetooth.requestDevice({ filters: [{ services: ['fitness_machine'] }] }); document.getElementById('btStatus').innerText = 'Connexion...'; const server = await bleDevice.gatt.connect(); const service = await server.getPrimaryService('fitness_machine');  // Characteristic 0x2AD9: Fitness Machine Control Point controlPointChar = await service.getCharacteristic(0x2AD9); // Characteristic 0x2AD2: Indoor Bike Data const bikeDataChar = await service.getCharacteristic(0x2AD2); await bikeDataChar.startNotifications(); bikeDataChar.addEventListener('characteristicvaluechanged', handleBikeData);  // Request Control OpCode 0x00 await controlPointChar.writeValue(new Uint8Array([0x00]));  document.getElementById('btBadge').classList.add('connected'); document.getElementById('btStatus').innerText = bleDevice.name \vert{}\vert{} 'Connecté'; document.getElementById('btnConnect').innerText = 'Déconnecter'; } catch (e) { console.error(e); document.getElementById('btStatus').innerText = 'Erreur'; } }  function handleBikeData(event) { const v = event.target.value; const flags = v.getUint16(0, true); let offset = 2;  // Speed (si bit 0 présent) if ((flags & 0x01) === 0) { offset += 2; } // Cadence (si bit 2) if ((flags & 0x04) !== 0) { const cad = v.getUint16(offset, true) * 0.5; document.getElementById('valCadence').innerHTML = `${Math.round(cad)}<span class="metric-unit">RPM</span>`;
+        offset += 2;
+      }
+      // Power (si bit 6)
+      if ((flags & 0x40) !== 0) {
+        const pwr = v.getInt16(offset, true);
+        document.getElementById('valPower').innerHTML = `${pwr}<span class="metric-unit">W</span>`;
       }
     }
 
-    async function sendFreeResistanceMode() {
-      if (state.controlPointChar) {
-        try {
-          // OpCode 0x04 = Set Target Resistance Level (0 à 100)
-          const buffer = new Uint8Array([0x04, 30]); // Résistance moyenne 30%
-          await state.controlPointChar.writeValue(buffer);
-          console.log('[FTMS] Bascule en mode Résistance Libre');
-        } catch (err) {
-          console.warn('[FTMS] Erreur mode Résistance :', err);
-        }
+    async function sendTargetPower(w) {
+      if (!controlPointChar) return;
+      try {
+        const buf = new Uint8Array(3);
+        buf[0] = 0x05; // Set Target Power OpCode
+        buf[1] = w & 0xFF;
+        buf[2] = (w >> 8) & 0xFF;
+        await controlPointChar.writeValue(buf);
+      } catch (err) {
+        console.warn('Erreur envoi ERG:', err);
       }
     }
 
-    // 8. MISE À JOUR DE L'AFFICHAGE DU COCKPIT
-    function updateWorkoutDisplays() {
-      const curInterval = state.activeWorkout.intervals[state.currentIntervalIdx];
-      const nextInterval = state.activeWorkout.intervals[state.currentIntervalIdx + 1];
-      if (!curInterval) return;
-
-      const isFreeMode = curInterval.freeResistance;
-
-      // Calcul des Watts cible
-      let targetW = 0;
-      if (isFreeMode) {
-        state.targetWatts = 0;
-        document.getElementById('target-mode-label').innerText = 'MODE LIBRE:';
-        document.getElementById('target-power-display').innerText = 'ALL-OUT';
-        sendFreeResistanceMode();
+    // --- WORKOUT ENGINE ---
+    function toggleRide() {
+      if (isRunning) {
+        pauseRide();
       } else {
-        const baseTarget = curInterval.fixedWatts || (state.userFtp * (curInterval.pct / 100));
-        targetW = Math.round(baseTarget * state.intensityMultiplier);
-        state.targetWatts = targetW;
-        document.getElementById('target-mode-label').innerText = 'CIBLE ERG:';
-        document.getElementById('target-power-display').innerText = `${targetW} W`;
-        sendErgTargetPower(targetW);
-      }
-
-      // Noms et intervalles
-      document.getElementById('active-workout-name').innerText = state.activeWorkout.name;
-      document.getElementById('current-interval-index').innerText = state.currentIntervalIdx + 1;
-      document.getElementById('total-intervals-count').innerText = state.activeWorkout.intervals.length;
-      document.getElementById('current-interval-label').innerText = `${curInterval.name}`;
-
-      const nextPreviewEl = document.getElementById('next-interval-preview');
-      if (nextInterval) {
-        const nextWatts = nextInterval.fixedWatts || Math.round(state.userFtp * (nextInterval.pct / 100));
-        nextPreviewEl.innerText = `Suivant : ${nextInterval.name} (${formatTime(nextInterval.duration)} à ${nextWatts} W)`;
-      } else {
-        nextPreviewEl.innerText = 'Dernier bloc de la séance !';
-      }
-
-      document.getElementById('time-remaining-interval').innerText = formatTime(state.intervalRemainingSec);
-      document.getElementById('time-total-workout').innerText = formatTime(state.totalElapsedSec);
-
-      // Badge de zone
-      const effectivePct = curInterval.fixedWatts ? (curInterval.fixedWatts / state.userFtp) * 100 : curInterval.pct;
-      const zone = getZone(effectivePct * state.intensityMultiplier);
-      const zoneTag = document.getElementById('interval-zone-tag');
-      zoneTag.innerText = isFreeMode ? 'TEST ALL-OUT' : zone.name;
-      zoneTag.style.backgroundColor = isFreeMode ? '#f87171' : zone.color;
-    }
-
-    function updateLiveTelemetryHUD() {
-      document.getElementById('current-power-display').innerText = state.currentWatts;
-      document.getElementById('cadence-display').innerText = state.currentCadence || '--';
-      document.getElementById('hr-display').innerText = state.currentHeartRate || '--';
-      document.getElementById('speed-display').innerText = state.currentSpeedKmH.toFixed(1);
-
-      const deltaEl = document.getElementById('power-delta');
-      if (state.targetWatts === 0) {
-        deltaEl.innerText = "Mode Pente/Résistance Libre";
-        deltaEl.className = "px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30";
-      } else if (state.currentWatts === 0) {
-        deltaEl.innerText = "En attente de pédalage";
-        deltaEl.className = "px-2 py-0.5 rounded-md bg-slate-800 text-slate-400";
-      } else {
-        const delta = state.currentWatts - state.targetWatts;
-        if (Math.abs(delta) <= 8) {
-          deltaEl.innerText = `Cible Parfaite (±${Math.abs(delta)} W)`;
-          deltaEl.className = "px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-        } else if (delta > 8) {
-          deltaEl.innerText = `+${delta} W au-dessus`;
-          deltaEl.className = "px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30";
-        } else {
-          deltaEl.innerText = `${delta} W en-dessous`;
-          deltaEl.className = "px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30";
-        }
+        startRide();
       }
     }
 
-    // 9. SIMULATION RÉALISTE
-    function simulateTrainerTick() {
-      if (!state.isRunning || state.isPaused) {
-        state.currentWatts = 0;
-        state.currentCadence = 0;
-        state.currentSpeedKmH = 0;
-        updateLiveTelemetryHUD();
-        return;
-      }
+    function startRide() {
+      isRunning = true;
+      document.getElementById('btnStart').innerText = 'Pause';
+      document.getElementById('btnStart').classList.replace('btn-primary', 'btn-secondary');
+      requestWakeLock();
+      updateTargetForCurrentStep();
 
-      const curInterval = state.activeWorkout.intervals[state.currentIntervalIdx];
-      const target = curInterval.freeResistance ? (state.userFtp * 1.05) : state.targetWatts;
-      const noise = (Math.random() - 0.5) * 6;
-      const diff = target - state.currentWatts;
-      state.currentWatts = Math.max(0, Math.round(state.currentWatts + diff * 0.25 + noise));
+      timer = setInterval(() => {
+        totalSeconds++;
+        currentStepRemaining--;
 
-      state.currentCadence = Math.round(88 + (Math.random() - 0.5) * 6);
-      const targetHr = Math.round(110 + (state.currentWatts / state.userFtp) * 55);
-      state.currentHeartRate = Math.round(targetHr + (Math.random() - 0.5) * 4);
-      state.currentSpeedKmH = Math.min(65, Math.max(12, Math.cbrt(state.currentWatts / 0.19) * 3.6));
-    }
+        // Collect point for analytics
+        const currentPwr = parseInt(document.getElementById('valPower').innerText) || targetWatts;
+        const currentCad = parseInt(document.getElementById('valCadence').innerText) || 85;
+        sessionData.push({ t: totalSeconds, p: currentPwr, cad: currentCad, hr: 140 });
 
-    // 10. BOUCLE CHRONOMÉTRIQUE
-    function startTimerLoop() {
-      if (timerInterval) clearInterval(timerInterval);
-
-      timerInterval = setInterval(() => {
-        if (!state.isRunning || state.isPaused) return;
-
-        state.totalElapsedSec++;
-        state.intervalRemainingSec--;
-
-        if (state.demoMode) {
-          simulateTrainerTick();
-        }
-
-        const distanceStepKm = (state.currentSpeedKmH / 3600);
-        state.totalDistanceKm += distanceStepKm;
-        state.totalCalories += (state.currentWatts * 0.001);
-
-        // Suivi spécifique au test FTP 20 min
-        const curInterval = state.activeWorkout.intervals[state.currentIntervalIdx];
-        if (curInterval.freeResistance) {
-          state.ftp20minPowers.push(state.currentWatts);
-        }
-
-        // Enregistrement continu TCX
-        state.trackpoints.push({
-          time: new Date().toISOString(),
-          watts: state.currentWatts,
-          cadence: state.currentCadence,
-          heartRate: state.currentHeartRate,
-          speed: state.currentSpeedKmH,
-          distanceMeters: Math.round(state.totalDistanceKm * 1000)
-        });
-
-        // Changement d'intervalle
-        if (state.intervalRemainingSec <= 0) {
-          // Si c'est un Ramp Test, on mémorise le palier terminé avec succès
-          if (state.activeWorkout.isFtpTest === 'ramp' && curInterval.fixedWatts) {
-            state.lastCompletedRampStepWatts = curInterval.fixedWatts;
-          }
-
-          if (state.currentIntervalIdx < state.activeWorkout.intervals.length - 1) {
-            state.currentIntervalIdx++;
-            state.intervalRemainingSec = state.activeWorkout.intervals[state.currentIntervalIdx].duration;
-            showToast(`Bloc : ${state.activeWorkout.intervals[state.currentIntervalIdx].name}`, 'fa-arrow-right');
-            renderWorkoutGraph();
-          } else {
-            finishWorkout();
+        if (currentStepRemaining <= 0) {
+          currentStepIndex++;
+          if (currentStepIndex >= selectedWorkout.intervals.length) {
+            stopRide();
             return;
           }
+          currentStepRemaining = selectedWorkout.intervals[currentStepIndex].dur;
+          updateTargetForCurrentStep();
         }
 
-        updateWorkoutDisplays();
-        updateLiveTelemetryHUD();
-        updateGraphNeedle();
-
+        updateCockpitDisplay();
       }, 1000);
     }
 
-    // 11. CONTRÔLEURS DE SÉANCE
-    const btnToggle = document.getElementById('btn-toggle-workout');
-    const playPauseIcon = document.getElementById('play-pause-icon');
-    const playPauseText = document.getElementById('play-pause-text');
+    function pauseRide() {
+      isRunning = false;
+      clearInterval(timer);
+      releaseWakeLock();
+      document.getElementById('btnStart').innerText = 'Reprendre';
+      document.getElementById('btnStart').classList.replace('btn-secondary', 'btn-primary');
+    }
 
-    btnToggle.addEventListener('click', () => {
-      if (!state.isRunning) {
-        state.isRunning = true;
-        state.isPaused = false;
-        playPauseIcon.className = 'fa-solid fa-pause';
-        playPauseText.innerText = 'PAUSE';
-        btnToggle.className = 'col-span-2 py-3.5 px-4 rounded-xl font-black text-sm bg-amber-500 text-black flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all';
-        startTimerLoop();
-        showToast('Séance démarrée !', 'fa-play');
-      } else if (state.isPaused) {
-        state.isPaused = false;
-        playPauseIcon.className = 'fa-solid fa-pause';
-        playPauseText.innerText = 'PAUSE';
-        showToast('Reprise', 'fa-play');
+    function stopRide() {
+      pauseRide();
+      saveCompletedSession();
+      alert('Entraînement terminé ! Vos statistiques sont prêtes dans l\'onglet Analyse.');
+      switchTab('analytics');
+      resetRide();
+    }
+
+    function resetRide() {
+      currentStepIndex = 0;
+      currentStepRemaining = selectedWorkout.intervals[0].dur;
+      totalSeconds = 0;
+      updateTargetForCurrentStep();
+      updateCockpitDisplay();
+    }
+
+    function updateTargetForCurrentStep() {
+      const step = selectedWorkout.intervals[currentStepIndex];
+      targetWatts = Math.round(ftp * step.pct);
+      document.getElementById('intervalTitle').innerText = `${step.name} (${targetWatts}W)`; document.getElementById('valTarget').innerText = `Cible : ${targetWatts} W (Mode ERG)`;
+
+      const next = selectedWorkout.intervals[currentStepIndex + 1];
+      if (next) {
+        document.getElementById('intervalNext').innerText = `Suivant : ${Math.round(next.dur/60)}m @ ${Math.round(ftp * next.pct)}W`;
       } else {
-        state.isPaused = true;
-        playPauseIcon.className = 'fa-solid fa-play';
-        playPauseText.innerText = 'REPRENDRE';
-        showToast('Entraînement en pause', 'fa-pause');
+        document.getElementById('intervalNext').innerText = 'Dernier intervalle';
       }
-    });
-
-    document.getElementById('btn-skip-interval').addEventListener('click', () => {
-      if (state.currentIntervalIdx < state.activeWorkout.intervals.length - 1) {
-        state.currentIntervalIdx++;
-        state.intervalRemainingSec = state.activeWorkout.intervals[state.currentIntervalIdx].duration;
-        updateWorkoutDisplays();
-        renderWorkoutGraph();
-        showToast('Bloc suivant sauté !', 'fa-forward-step');
-      } else {
-        showToast('Dernier intervalle atteint', 'fa-info');
-      }
-    });
-
-    document.getElementById('btn-intensity-up').addEventListener('click', () => {
-      state.intensityMultiplier = Math.min(1.30, +(state.intensityMultiplier + 0.05).toFixed(2));
-      document.getElementById('intensity-bias-label').innerText = `${Math.round(state.intensityMultiplier * 100)}%`;
-      updateWorkoutDisplays();
-    });
-
-    document.getElementById('btn-intensity-down').addEventListener('click', () => {
-      state.intensityMultiplier = Math.max(0.70, +(state.intensityMultiplier - 0.05).toFixed(2));
-      document.getElementById('intensity-bias-label').innerText = `${Math.round(state.intensityMultiplier * 100)}%`;
-      updateWorkoutDisplays();
-    });
-
-    document.getElementById('btn-stop-workout').addEventListener('click', finishWorkout);
-
-    // Fin et calcul des résultats (Ramp Test / 20min)
-    function finishWorkout() {
-      if (!state.isRunning && state.trackpoints.length === 0) {
-        showToast('Aucune séance active à enregistrer', 'fa-circle-exclamation');
-        return;
-      }
-
-      state.isRunning = false;
-      state.isPaused = false;
-      if (timerInterval) clearInterval(timerInterval);
-
-      // Calcul des statistiques
-      const pts = state.trackpoints;
-      const avgWatts = pts.length > 0 ? Math.round(pts.reduce((s, p) => s + p.watts, 0) / pts.length) : 0;
-      const maxWatts = pts.length > 0 ? Math.max(...pts.map(p => p.watts)) : 0;
-      const avgHr = pts.length > 0 ? Math.round(pts.reduce((s, p) => s + (p.heartRate || 0), 0) / pts.length) : 0;
-
-      // Logique Spécifique Test FTP
-      if (state.activeWorkout.isFtpTest === 'ramp') {
-        // Nouvelle FTP = 75% du dernier palier complété (ou 75% du palier en cours s'il a duré au moins 30s)
-        const curInterval = state.activeWorkout.intervals[state.currentIntervalIdx];
-        const stepSecCompleted = curInterval.duration - state.intervalRemainingSec;
-        let baseWatts = state.lastCompletedRampStepWatts;
-        if (stepSecCompleted >= 30 && curInterval.fixedWatts) {
-          baseWatts = curInterval.fixedWatts;
-        }
-        if (baseWatts > 0) {
-          const newCalculatedFtp = Math.round(baseWatts * 0.75);
-          showFtpResultBanner(newCalculatedFtp, `Calculé à 75% de votre palier maximal (${baseWatts} W).`);
-        }
-      } else if (state.activeWorkout.isFtpTest === '20min' && state.ftp20minPowers.length > 60) {
-        // Nouvelle FTP = 95% de la moyenne des 20 minutes All-Out
-        const avg20min = Math.round(state.ftp20minPowers.reduce((a, b) => a + b, 0) / state.ftp20minPowers.length);
-        const newCalculatedFtp = Math.round(avg20min * 0.95);
-        showFtpResultBanner(newCalculatedFtp, `Calculé à 95% de votre moyenne sur 20 min (${avg20min} W).`);
-      }
-
-      state.lastRecordedSession = {
-        name: state.activeWorkout.name,
-        date: new Date(),
-        durationSec: state.totalElapsedSec,
-        distanceKm: state.totalDistanceKm,
-        calories: Math.round(state.totalCalories),
-        avgWatts,
-        maxWatts,
-        avgHr,
-        trackpoints: [...state.trackpoints]
-      };
-
-      playPauseIcon.className = 'fa-solid fa-play';
-      playPauseText.innerText = 'DÉMARRER';
-      btnToggle.className = 'col-span-2 py-3.5 px-4 rounded-xl font-black text-sm bg-gradient-to-r from-orange-500 to-amber-500 text-black flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all';
-
-      renderLatestSessionCard();
-      switchTab('history');
-      showToast('Séance terminée et prête pour Garmin.', 'fa-trophy');
+      sendTargetPower(targetWatts);
     }
 
-    function showFtpResultBanner(ftpVal, explanation) {
-      const banner = document.getElementById('ftp-result-banner');
-      const valEl = document.getElementById('calculated-ftp-value');
-      const descEl = document.getElementById('ftp-calculation-details');
-      const applyBtn = document.getElementById('btn-apply-ftp');
+    function adjustTarget(delta) {
+      targetWatts = Math.max(50, targetWatts + delta);
+      document.getElementById('valTarget').innerText = `Cible : ${targetWatts} W (Ajusté)`; sendTargetPower(targetWatts); }  function updateCockpitDisplay() { const m = Math.floor(currentStepRemaining / 60); const s = currentStepRemaining \% 60; document.getElementById('intervalTime').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;  const totalM = Math.floor(totalSeconds / 60); const totalS = totalSeconds \% 60; document.getElementById('valTotalTime').innerText = `${String(totalM).padStart(2,'0')}:${String(totalS).padStart(2,'0')}`;  // Progress bar const curDur = selectedWorkout.intervals[currentStepIndex].dur; const pct = ((curDur - currentStepRemaining) / curDur) * 100; document.getElementById('intervalProgress').style.width = `${pct}%`;
 
-      valEl.innerText = `${ftpVal} W`;
-      descEl.innerText = explanation;
-      banner.classList.remove('hidden');
+      // Live kJ & NP
+      if (sessionData.length > 0) {
+        const sumW = sessionData.reduce((acc, d) => acc + d.p, 0);
+        document.getElementById('subWork').innerText = `${Math.round(sumW / 1000)} kJ`; const np = calculateNP(sessionData.map(d => d.p)); document.getElementById('valNP').innerHTML = `${np}<span class="metric-unit">W</span>`;
+        document.getElementById('valIF').innerText = `IF : ${(np / ftp).toFixed(2)}`; } }  // --- ALGORITHMES D'ANALYSE (NP, TSS, IF) --- function calculateNP(powerCurve) { if (powerCurve.length < 30) return Math.round(powerCurve.reduce((a,b)=>a+b,0) / (powerCurve.length \vert{}\vert{} 1)); // Rolling 30s average let rolling = []; let sum = 0; for (let i = 0; i < powerCurve.length; i++) { sum += powerCurve[i]; if (i >= 30) sum -= powerCurve[i - 30]; if (i >= 29) rolling.push(Math.pow(sum / 30, 4)); } const avg = rolling.reduce((a, b) => a + b, 0) / rolling.length; return Math.round(Math.pow(avg, 0.25)); }  function updateAnalyticsUI() { if (sessionData.length === 0) return;  const powers = sessionData.map(d => d.p); const avgP = Math.round(powers.reduce((a, b) => a + b, 0) / powers.length); const np = calculateNP(powers); const ifScore = parseFloat((np / ftp).toFixed(2)); const durHours = sessionData.length / 3600; const tss = Math.round((sessionData.length * np * ifScore) / (ftp * 36) * 100); const workKj = Math.round(powers.reduce((a, b) => a + b, 0) / 1000);  document.getElementById('anAvgPower').innerHTML = `${avgP} <span style="font-size:0.8rem;">W</span>`;
+      document.getElementById('anNP').innerHTML = `${np} <span style="font-size:0.8rem;">W</span>`;
+      document.getElementById('anIF').innerText = ifScore;
+      document.getElementById('anTSS').innerText = tss;
+      document.getElementById('anWork').innerHTML = `${workKj} <span style="font-size:0.8rem;">kJ</span>`;
 
-      applyBtn.onclick = () => {
-        state.userFtp = ftpVal;
-        document.getElementById('input-ftp').value = ftpVal;
-        localStorage.setItem('ridepulse_user_ftp', ftpVal.toString());
-        banner.classList.add('hidden');
-        showToast(`Nouvelle FTP enregistrée : ${ftpVal} W !`, 'fa-circle-check');
-        renderWorkoutsList();
-      };
-    }
-
-    // 12. GÉNÉRATEUR TCX STANDARD GARMIN CONNECT
-    function generateGarminTCX(session) {
-      const startTime = session.trackpoints.length > 0 ? session.trackpoints[0].time : new Date().toISOString();
-      
-      const trackpointsXML = session.trackpoints.map(tp => `
-        <Trackpoint>
-          <Time>${tp.time}</Time>
-          <DistanceMeters>${tp.distanceMeters}</DistanceMeters>
-          <HeartRateBpm>
-            <Value>${tp.heartRate}</Value>
-          </HeartRateBpm>
-          <Cadence>${tp.cadence}</Cadence>
-          <Extensions>
-            <TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
-              <Watts>${tp.watts}</Watts>
-              <Speed>${(tp.speed / 3.6).toFixed(2)}</Speed>
-            </TPX>
-          </Extensions>
-        </Trackpoint>`).join('');
-
-      return `<?xml version="1.0" encoding="UTF-8"?>
-<TrainingCenterDatabase
-  xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
-  <Activities>
-    <Activity Sport="Biking">
-      <Id>${startTime}</Id>
-      <Lap StartTime="${startTime}">
-        <TotalTimeSeconds>${session.durationSec}</TotalTimeSeconds>
-        <DistanceMeters>${Math.round(session.distanceKm * 1000)}</DistanceMeters>
-        <Calories>${session.calories}</Calories>
-        <AverageHeartRateBpm>
-          <Value>${session.avgHr}</Value>
-        </AverageHeartRateBpm>
-        <Intensity>Active</Intensity>
-        <TriggerMethod>Manual</TriggerMethod>
-        <Track>
-          ${trackpointsXML}
-        </Track>
-      </Lap>
-      <Creator xsi:type="Device_t">
-        <Name>RidePulse Virtual Smart Trainer</Name>
-        <UnitId>8888</UnitId>
-        <ProductID>1</ProductID>
-      </Creator>
-    </Activity>
-  </Activities>
-</TrainingCenterDatabase>`;
-    }
-
-    function downloadTCXFile() {
-      if (!state.lastRecordedSession || state.lastRecordedSession.trackpoints.length === 0) {
-        showToast('Aucun enregistrement disponible', 'fa-exclamation-triangle');
-        return;
-      }
-
-      const tcxContent = generateGarminTCX(state.lastRecordedSession);
-      const blob = new Blob([tcxContent], { type: 'application/vnd.garmin.tcx+xml' });
-      const url = URL.createObjectURL(blob);
-      
-      const fileName = `RidePulse_${state.lastRecordedSession.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.tcx`;
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      showToast('Fichier TCX téléchargé !', 'fa-cloud-arrow-down');
-    }
-
-    function renderLatestSessionCard() {
-      const card = document.getElementById('session-summary-content');
-      const dateEl = document.getElementById('session-date');
-
-      if (!state.lastRecordedSession) return;
-
-      const s = state.lastRecordedSession;
-      dateEl.innerText = s.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
-      card.className = "space-y-4 text-left py-2";
-      card.innerHTML = `
-        <div class="border-b border-slate-800 pb-3">
-          <h4 class="font-bold text-white text-base">${s.name}</h4>
-          <span class="text-xs text-slate-400">Durée : ${formatTime(s.durationSec)} | Distance : ${s.distanceKm.toFixed(2)} km</span>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-            <div class="text-[10px] text-slate-400">P. Moyenne</div>
-            <div class="text-xl font-black text-orange-400 font-mono">${s.avgWatts} W</div>
-          </div>
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-            <div class="text-[10px] text-slate-400">P. Max</div>
-            <div class="text-xl font-black text-rose-400 font-mono">${s.maxWatts} W</div>
-          </div>
-          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-            <div class="text-[10px] text-slate-400">Calories</div>
-            <div class="text-xl font-black text-emerald-400 font-mono">${s.calories}</div>
-          </div>
-        </div>
-
-        <div class="space-y-2 pt-2">
-          <button id="btn-download-tcx" class="w-full py-3 rounded-xl font-extrabold text-sm bg-gradient-to-r from-sky-500 to-blue-600 text-white flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 active:scale-95 transition-all">
-            <i class="fa-solid fa-file-arrow-down"></i> Télécharger Fichier TCX pour Garmin
-          </button>
-          
-          <a href="https://connect.garmin.com/modern/import-data" target="_blank" class="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-2 active:scale-95 transition-all">
-            <i class="fa-solid fa-up-right-from-square"></i> Ouvrir la page Import Garmin Connect
-          </a>
-        </div>
-      `;
-
-      document.getElementById('btn-download-tcx').addEventListener('click', downloadTCXFile);
-    }
-
-    // 13. BLUETOOTH FTMS
-    const btnConnectBT = document.getElementById('btn-connect-bt');
-    const btStatusText = document.getElementById('bt-status-text');
-    const btIcon = document.getElementById('bt-icon');
-
-    const FTMS_SERVICE_UUID = 0x1826;
-    const INDOOR_BIKE_DATA_UUID = 0x2AD2;
-    const FTMS_CONTROL_POINT_UUID = 0x2AD9;
-
-    async function connectBluetoothTrainer() {
-      if (!navigator.bluetooth) {
-        showToast('Web Bluetooth non supporté (utilisez Chrome Android ou Bluefy sur iOS)', 'fa-triangle-exclamation');
-        return;
-      }
-
-      try {
-        btStatusText.innerText = 'Recherche...';
-        showToast('Sélectionnez votre Home Trainer...', 'fa-magnifying-glass');
-
-        const device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [FTMS_SERVICE_UUID] }],
-          optionalServices: [0x1818, 0x180D]
-        });
-
-        btStatusText.innerText = 'Connexion...';
-        const server = await device.gatt.connect();
-        state.bluetoothDevice = device;
-
-        const ftmsService = await server.getPrimaryService(FTMS_SERVICE_UUID);
-        state.controlPointChar = await ftmsService.getCharacteristic(FTMS_CONTROL_POINT_UUID);
-        
-        try {
-          const reqCtrl = new Uint8Array([0x00]);
-          await state.controlPointChar.writeValue(reqCtrl);
-        } catch (e) {
-          console.log('FTMS Request Control auto-granted');
-        }
-
-        state.indoorBikeDataChar = await ftmsService.getCharacteristic(INDOOR_BIKE_DATA_UUID);
-        await state.indoorBikeDataChar.startNotifications();
-        state.indoorBikeDataChar.addEventListener('characteristicvaluechanged', handleIndoorBikeData);
-
-        state.demoMode = false;
-        updateDemoButtonUI();
-
-        btIcon.className = 'fa-brands fa-bluetooth-b text-emerald-400';
-        btStatusText.innerText = device.name ? device.name.slice(0, 10) : 'Connecté';
-        btnConnectBT.className = 'px-3 py-1 text-xs font-semibold rounded-full border border-emerald-500/40 bg-emerald-500/20 text-emerald-300 flex items-center gap-1.5';
-        showToast(`Connecté à ${device.name || 'Smart Trainer'} !`, 'fa-circle-check');
-
-        if (state.targetWatts > 0) {
-          sendErgTargetPower(state.targetWatts);
-        }
-
-      } catch (err) {
-        console.warn('Bluetooth Connexion Error:', err);
-        btStatusText.innerText = 'Erreur / Réessayer';
-        btIcon.className = 'fa-brands fa-bluetooth-b text-orange-400';
-        showToast('Connexion Bluetooth annulée', 'fa-circle-xmark');
-      }
-    }
-
-    function handleIndoorBikeData(event) {
-      const data = event.target.value;
-      const flags = data.getUint16(0, true);
-      let offset = 2;
-
-      if (!(flags & 0x01)) {
-        const speedRaw = data.getUint16(offset, true);
-        state.currentSpeedKmH = speedRaw * 0.01;
-        offset += 2;
-      }
-
-      if (flags & 0x04) {
-        const cadenceRaw = data.getUint16(offset, true);
-        state.currentCadence = Math.round(cadenceRaw * 0.5);
-        offset += 2;
-      }
-
-      if (flags & 0x40) {
-        const power = data.getInt16(offset, true);
-        state.currentWatts = Math.max(0, power);
-        offset += 2;
-      }
-
-      updateLiveTelemetryHUD();
-    }
-
-    btnConnectBT.addEventListener('click', connectBluetoothTrainer);
-
-    // 14. MODE DÉMO
-    const btnToggleDemo = document.getElementById('btn-toggle-demo');
-    const demoIndicator = document.getElementById('demo-indicator');
-
-    function updateDemoButtonUI() {
-      if (state.demoMode) {
-        demoIndicator.innerText = 'Mode Démo : ACTIF';
-        btnToggleDemo.className = 'px-2.5 py-1 text-xs rounded-full border border-sky-500/40 bg-sky-500/20 text-sky-300 active:scale-95 transition-all';
-      } else {
-        demoIndicator.innerText = 'Mode Démo : OFF';
-        btnToggleDemo.className = 'px-2.5 py-1 text-xs rounded-full border border-slate-700 bg-slate-800 text-slate-400 active:scale-95 transition-all';
-      }
-    }
-
-    btnToggleDemo.addEventListener('click', () => {
-      state.demoMode = !state.demoMode;
-      updateDemoButtonUI();
-      showToast(state.demoMode ? 'Simulation activée' : 'Simulation coupée', 'fa-sliders');
-    });
-
-    // 15. GESTION FTP UTILISATEUR & BOUTONS +/-
-    const inputFtp = document.getElementById('input-ftp');
-    function setFtpValue(val) {
-      if (val >= 80 && val <= 550) {
-        state.userFtp = val;
-        inputFtp.value = val;
-        localStorage.setItem('ridepulse_user_ftp', val.toString());
-        updateWorkoutDisplays();
-        renderWorkoutGraph();
-        renderWorkoutsList();
-      }
-    }
-
-    inputFtp.addEventListener('change', (e) => {
-      setFtpValue(parseInt(e.target.value, 10));
-      showToast(`FTP : ${state.userFtp}W`, 'fa-bolt');
-    });
-
-    document.getElementById('btn-ftp-plus').addEventListener('click', () => {
-      setFtpValue(state.userFtp + 5);
-    });
-
-    document.getElementById('btn-ftp-minus').addEventListener('click', () => {
-      setFtpValue(state.userFtp - 5);
-    });
-
-    // 16. MODAL CRÉATEUR D'ENTRAÎNEMENT PERSONNALISÉ
-    const modalCustom = document.getElementById('modal-custom-workout');
-    const btnOpenCustom = document.getElementById('btn-custom-workout');
-    const btnCloseModal = document.getElementById('btn-close-modal');
-    const btnCancelCustom = document.getElementById('btn-cancel-custom');
-    const btnSaveCustom = document.getElementById('btn-save-custom');
-    const customIntervalsContainer = document.getElementById('custom-intervals-container');
-
-    btnOpenCustom.addEventListener('click', () => {
-      modalCustom.classList.remove('hidden');
-      renderCustomIntervalRows();
-    });
-
-    function closeCustomModal() {
-      modalCustom.classList.add('hidden');
-    }
-    btnCloseModal.addEventListener('click', closeCustomModal);
-    btnCancelCustom.addEventListener('click', closeCustomModal);
-
-    let tempCustomIntervals = [
-      { name: 'Échauffement', duration: 300, pct: 60 },
-      { name: 'Bloc Rapide', duration: 300, pct: 100 },
-      { name: 'Récupération', duration: 180, pct: 50 },
-      { name: 'Retour calme', duration: 300, pct: 55 }
-    ];
-
-    function renderCustomIntervalRows() {
-      customIntervalsContainer.innerHTML = '';
-      tempCustomIntervals.forEach((item, index) => {
-        const row = document.createElement('div');
-        row.className = 'flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 text-xs';
-        row.innerHTML = `
-          <input type="text" value="${item.name}" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white w-1/3" onchange="tempCustomIntervals[${index}].name = this.value">
-          <input type="number" value="${item.duration}" class="bg-slate-900 border border-slate-700 rounded px-1 py-1 text-white text-center w-20" placeholder="Sec" onchange="tempCustomIntervals[${index}].duration = parseInt(this.value, 10)">
-          <span class="text-slate-400">sec</span>
-          <input type="number" value="${item.pct}" class="bg-slate-900 border border-slate-700 rounded px-1 py-1 text-orange-400 font-bold text-center w-16" placeholder="%FTP" onchange="tempCustomIntervals[${index}].pct = parseInt(this.value, 10)">
-          <span class="text-slate-400">%</span>
-          <button class="text-red-400 hover:text-red-300 ml-auto p-1" onclick="removeCustomInterval(${index})"><i class="fa-solid fa-trash"></i></button>
-        `;
-        customIntervalsContainer.appendChild(row);
+      // Zone distribution
+      let z = [0, 0, 0, 0, 0, 0];
+      powers.forEach(p => {
+        const ratio = p / ftp;
+        if (ratio < 0.55) z[0]++;
+        else if (ratio < 0.75) z[1]++;
+        else if (ratio < 0.90) z[2]++;
+        else if (ratio < 1.05) z[3]++;
+        else if (ratio < 1.20) z[4]++;
+        else z[5]++;
       });
+
+      const totalPts = powers.length;
+      for (let i = 0; i < 6; i++) {
+        const pct = Math.round((z[i] / totalPts) * 100);
+        document.getElementById(`barZ${i+1}`).style.width = `${pct}\%`; document.getElementById(`timeZ${i+1}`).innerText = `${Math.round(z[i]/60)}m (${pct}%)`;
+      }
     }
 
-    window.removeCustomInterval = function(index) {
-      if (tempCustomIntervals.length > 1) {
-        tempCustomIntervals.splice(index, 1);
-        renderCustomIntervalRows();
-      }
-    };
-
-    document.getElementById('btn-add-interval').addEventListener('click', () => {
-      tempCustomIntervals.push({ name: 'Nouvel effort', duration: 180, pct: 85 });
-      renderCustomIntervalRows();
-    });
-
-    btnSaveCustom.addEventListener('click', () => {
-      const name = document.getElementById('custom-name').value.trim() || 'Mon Entraînement';
-      const newWorkout = {
-        id: 'custom-' + Date.now(),
-        category: 'all',
-        name: name,
-        desc: 'Séance sur mesure créée dans RidePulse.',
-        intervals: [...tempCustomIntervals]
+    function saveCompletedSession() {
+      if (sessionData.length < 10) return;
+      const powers = sessionData.map(d => d.p);
+      const np = calculateNP(powers);
+      const record = {
+        date: new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }),
+        title: selectedWorkout.title,
+        durationMin: Math.round(sessionData.length / 60),
+        np: np,
+        tss: Math.round((sessionData.length * np * (np / ftp)) / (ftp * 36) * 100)
       };
-      WORKOUT_TEMPLATES.unshift(newWorkout);
-      loadWorkout(newWorkout);
-      closeCustomModal();
-      switchTab('cockpit');
-      showToast(`Séance "${name}" prête !`, 'fa-check');
-    });
+      let history = JSON.parse(localStorage.getItem('ride_history') || '[]');
+      history.unshift(record);
+      if (history.length > 5) history.pop();
+      localStorage.setItem('ride_history', JSON.stringify(history));
+      renderHistory();
+    }
 
-    // 17. INITIALISATION AU CHARGEMENT
-    window.addEventListener('DOMContentLoaded', () => {
-      inputFtp.value = state.userFtp;
-      updateDemoButtonUI();
-      renderWorkoutsList();
-      loadWorkout(WORKOUT_TEMPLATES[0]);
-    });
-  </script>
-</body>
-</html>
+    function renderHistory() {
+      const list = document.getElementById('historyContainer');
+      const history = JSON.parse(localStorage.getItem('ride_history') || '[]');
+      list.innerHTML = history.length === 0 ? '<p style="color:var(--text-muted); font-size:0.8rem;">Aucune séance passée.</p>' : '';
+      history.forEach(h => {
+        const d = document.createElement('div');
+        d.className = 'history-card';
+        d.innerHTML = `
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">${h.title}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">${h.date} •${h.durationMin} min</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:'Chakra Petch'; font-weight:700; color:var(--accent); font-size:1.1rem;">${h.np} W</div>
+            <div style="font-size:0.75rem; color:
