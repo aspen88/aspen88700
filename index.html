@@ -189,6 +189,8 @@
     .btn-danger { background: #ef4444; color: #fff; }
     .btn-secondary { background: #1e293b; color: var(--text); border: 1px solid #334155; }
     .btn-full { grid-column: span 2; }
+    
+    .erg-active { border: 2px solid var(--accent); color: var(--accent); background: rgba(34, 211, 238, 0.05); }
 
     /* Workouts Selector */
     .workout-list { display: flex; flex-direction: column; gap: 10px; }
@@ -291,7 +293,7 @@
       <div class="metric-card full-width power-card">
         <span class="metric-title">Puissance Instantanée</span>
         <div class="power-val" id="valPower">0<span class="metric-unit">W</span></div>
-        <div class="power-target" id="valTarget">Cible : -- W</div>
+        <div class="power-target" id="valTarget">Cible : -- W (ERG)</div>
       </div>
 
       <div class="metric-card">
@@ -325,9 +327,10 @@
         Connecter Home Trainer FTMS
       </button>
       <button class="btn btn-primary" id="btnStart" onclick="toggleRide()">Démarrer</button>
-      <button class="btn btn-secondary" onclick="adjustTarget(5)">+5W</button>
-      <button class="btn btn-secondary" onclick="adjustTarget(-5)">-5W</button>
       <button class="btn btn-danger" onclick="stopRide()">Arrêter</button>
+      <button class="btn btn-secondary" onclick="adjustTarget(-5)">-5W</button>
+      <button class="btn btn-secondary" onclick="adjustTarget(5)">+5W</button>
+      <button class="btn btn-secondary btn-full erg-active" id="btnErg" onclick="toggleERG()">Mode ERG : ACTIVÉ</button>
     </div>
   </main>
 
@@ -550,6 +553,7 @@
 
     let selectedWorkout = WORKOUTS[5]; // Default : Sweet Spot
     let isRunning = false;
+    let isErgMode = true; // Mode ERG Actif par défaut
     let timer = null;
     let currentStepIndex = 0;
     let currentStepRemaining = 0;
@@ -726,12 +730,38 @@
     }
 
     async function sendTargetPower(w) {
-      if (!controlPointChar) return;
+      if (!controlPointChar || !isErgMode) return;
       try {
         const buf = new Uint8Array(3);
         buf[0] = 0x05; buf[1] = w & 0xFF; buf[2] = (w >> 8) & 0xFF;
         await controlPointChar.writeValue(buf);
       } catch (err) { console.warn('Erreur ERG:', err); }
+    }
+    
+    async function toggleERG() {
+      isErgMode = !isErgMode;
+      const btn = document.getElementById('btnErg');
+      
+      if (isErgMode) {
+        btn.innerText = "Mode ERG : ACTIVÉ";
+        btn.classList.add('erg-active');
+        updateTargetForCurrentStep(); // Réapplique la résistance cible immédiate
+      } else {
+        btn.innerText = "Mode ERG : DÉSACTIVÉ (Libre)";
+        btn.classList.remove('erg-active');
+        
+        // Ordre FTMS pour libérer la résistance (Niveau 0)
+        if (controlPointChar) {
+          try {
+            const buf = new Uint8Array(3);
+            buf[0] = 0x04; // Set Target Resistance Level OpCode
+            buf[1] = 0;    // 0%
+            buf[2] = 0;
+            await controlPointChar.writeValue(buf);
+          } catch (err) { console.warn("Erreur Libération Résistance:", err); }
+        }
+      }
+      updateCockpitDisplay();
     }
 
     // --- ENGINE ---
@@ -783,8 +813,30 @@
 
     function stopRide() {
       pauseRide();
+      
+      // --- DÉTECTION AUTOMATIQUE TEST RAMPE ---
+      if (selectedWorkout.id === 'ramp_ftp' && currentStepIndex > 0) {
+        const lastWatts = ftp * selectedWorkout.intervals[currentStepIndex - 1].pct;
+        const currentWatts = ftp * selectedWorkout.intervals[currentStepIndex].pct;
+        
+        const stepTotalDur = selectedWorkout.intervals[currentStepIndex].dur;
+        const fraction = (stepTotalDur - currentStepRemaining) / stepTotalDur;
+        
+        const peakPower = lastWatts + fraction * (currentWatts - lastWatts);
+        const newFTP = Math.round(peakPower * 0.75);
+
+        if (confirm("Test Rampe terminé !\n\nTa nouvelle FTP calculée est de " + newFTP + " W.\nVeux-tu la sauvegarder pour tes prochaines séances ?")) {
+          document.getElementById('inputFTP').value = newFTP;
+          ftp = newFTP;
+          localStorage.setItem('user_ftp', ftp);
+          renderWorkouts(); 
+        }
+      } else {
+        alert("Entraînement terminé ! Tes statistiques sont prêtes dans l'onglet Analyse.");
+      }
+      // ----------------------------------------
+
       saveCompletedSession();
-      alert("Entraînement terminé ! Tes statistiques sont prêtes dans l'onglet Analyse.");
       switchTab('analytics');
       resetRide();
     }
@@ -803,7 +855,6 @@
       const step = selectedWorkout.intervals[currentStepIndex];
       targetWatts = Math.round(ftp * step.pct);
       document.getElementById('intervalTitle').innerText = `${step.name} (${targetWatts}W)`;
-      document.getElementById('valTarget').innerText = `Cible : ${targetWatts} W (Mode ERG)`;
 
       const next = selectedWorkout.intervals[currentStepIndex + 1];
       if (next) {
@@ -812,15 +863,21 @@
         document.getElementById('intervalNext').innerText = 'Dernier intervalle';
       }
       sendTargetPower(targetWatts);
+      updateCockpitDisplay();
     }
 
     function adjustTarget(delta) {
       targetWatts = Math.max(50, targetWatts + delta);
-      document.getElementById('valTarget').innerText = `Cible : ${targetWatts} W (Ajusté)`;
       sendTargetPower(targetWatts);
+      updateCockpitDisplay();
     }
 
     function updateCockpitDisplay() {
+      // Indicateur visuel ERG actif / inactif
+      document.getElementById('valTarget').innerText = isErgMode 
+        ? `Cible : ${targetWatts} W (ERG)` 
+        : `Cible : ${targetWatts} W (Libre)`;
+
       const m = Math.floor(currentStepRemaining / 60);
       const s = currentStepRemaining % 60;
       document.getElementById('intervalTime').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
@@ -912,7 +969,7 @@
       };
       let history = JSON.parse(localStorage.getItem('ride_history') || '[]');
       history.unshift(record);
-      if (history.length > 5) history.pop();
+      if (history.length > 500) history.pop();
       localStorage.setItem('ride_history', JSON.stringify(history));
       renderHistory();
     }
