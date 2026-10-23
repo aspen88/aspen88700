@@ -176,6 +176,18 @@
 
     /* Workouts Selector */
     .workout-list { display: flex; flex-direction: column; gap: 10px; }
+    
+    .category-title {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 16px 0 8px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .category-title:first-child { margin-top: 4px; }
+
     .workout-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -366,24 +378,25 @@
   </section>
 
   <script>
-    // --- WORKOUTS DATA ---
     let ftp = parseInt(localStorage.getItem('user_ftp')) || 200;
     document.getElementById('inputFTP').value = ftp;
 
+    // --- WORKOUTS DATA AVEC CATEGORIES ---
     const WORKOUTS = [
+      // TESTS FTP
       {
-        id: 'ramp_ftp',
+        id: 'ramp_ftp', category: 'test',
         title: 'Test FTP en Rampe (+10% / min)',
-        desc: 'Échauffement 5 min puis augmentation constante jusqu\'à épuisement pour calculer votre FTP.',
+        desc: "Échauffement 5 min puis augmentation constante jusqu'à épuisement pour calculer votre FTP.",
         intervals: [
           { name: 'Échauffement', dur: 300, pct: 0.5 },
           ...Array(15).fill(0).map((_, i) => ({ name: `Palier ${i+1}`, dur: 60, pct: 0.6 + (i * 0.1) }))
         ]
       },
       {
-        id: 'ftp_20',
+        id: 'ftp_20', category: 'test',
         title: 'Test FTP 20 min classique',
-        desc: 'Échauffement long, déblocage de 5 min, puis 20 min All-Out. Votre FTP = 95% de la puissance moyenne des 20 min.',
+        desc: "Échauffement long, déblocage de 5 min, puis 20 min All-Out. Votre FTP = 95% de la puissance moyenne.",
         intervals: [
           { name: 'Échauffement', dur: 600, pct: 0.6 },
           { name: 'Déblocage (Allure Max)', dur: 300, pct: 1.05 },
@@ -392,10 +405,50 @@
           { name: 'Retour au calme', dur: 300, pct: 0.5 }
         ]
       },
+      
+      // ENDURANCE (Z2 - Z3 - Force)
       {
-        id: 'sweet_spot',
+        id: 'endurance_60', category: 'endurance',
+        title: 'Endurance Fondamentale (1h00)',
+        desc: "Travail continu en Zone 2 (70%). Amélioration de la lipolyse et de l'endurance de base.",
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.55 },
+          { name: 'Endurance Z2', dur: 2400, pct: 0.70 },
+          { name: 'Retour au calme', dur: 600, pct: 0.55 }
+        ]
+      },
+      {
+        id: 'tempo_3x10', category: 'endurance',
+        title: 'Tempo (3x10 min)',
+        desc: "Travail au train en Zone 3 (80%). Idéal pour s'habituer aux longues ascensions.",
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          ...Array(3).fill([
+            { name: 'Tempo Z3', dur: 600, pct: 0.8 },
+            { name: 'Récupération', dur: 180, pct: 0.55 }
+          ]).flat(),
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
+        ]
+      },
+      {
+        id: 'force', category: 'endurance',
+        title: 'Force sous-cadence (4x 5 min)',
+        desc: "Travail musculaire à 85% FTP. Pédalez volontairement à basse cadence (55-60 RPM) pendant l'effort.",
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          ...Array(4).fill([
+            { name: 'Bloc Force (55 RPM)', dur: 300, pct: 0.85 },
+            { name: 'Vélocité souple (100 RPM)', dur: 180, pct: 0.55 }
+          ]).flat(),
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
+        ]
+      },
+
+      // AEROBIE ELEVE (Sweet Spot, Seuil)
+      {
+        id: 'sweet_spot', category: 'aerobic',
         title: 'Sweet Spot (2x15 min)',
-        desc: 'Amélioration de l\'endurance aérobie et musculaire. Blocs à 90% FTP.',
+        desc: "Le meilleur compromis fatigue/bénéfice. Blocs continus à 90% FTP pour l'endurance musculaire.",
         intervals: [
           { name: 'Échauffement', dur: 600, pct: 0.6 },
           { name: 'Bloc 1 (Sweet Spot)', dur: 900, pct: 0.9 },
@@ -405,9 +458,22 @@
         ]
       },
       {
-        id: 'over_under',
+        id: 'seuil_4x8', category: 'aerobic',
+        title: 'Seuil Lisse (4x8 min)',
+        desc: "Développement du seuil fonctionnel. Blocs intenses maintenus exactement à 100% FTP.",
+        intervals: [
+          { name: 'Échauffement', dur: 600, pct: 0.6 },
+          ...Array(4).fill([
+            { name: 'Seuil Lactique', dur: 480, pct: 1.0 },
+            { name: 'Récupération', dur: 180, pct: 0.5 }
+          ]).flat(),
+          { name: 'Retour au calme', dur: 300, pct: 0.5 }
+        ]
+      },
+      {
+        id: 'over_under', category: 'aerobic',
         title: 'Seuil Over-Under (3 blocs)',
-        desc: 'Alternance 2 min sous le seuil (95%) et 1 min au-dessus (105%) pour entraîner le recyclage de l\'acide lactique.',
+        desc: "Alternance 2 min sous le seuil (95%) et 1 min au-dessus (105%) pour entraîner le recyclage de l'acide lactique.",
         intervals: [
           { name: 'Échauffement', dur: 600, pct: 0.6 },
           ...Array(3).fill([
@@ -422,10 +488,12 @@
           { name: 'Retour au calme', dur: 300, pct: 0.5 }
         ]
       },
+
+      // ANAEROBIE (VO2, Sprints)
       {
-        id: 'vo2_max_5x3',
+        id: 'vo2_max_5x3', category: 'anaerobic',
         title: 'VO2 Max (5x 3 min)',
-        desc: 'Augmentation de la PMA. 3 minutes d\'effort à 115% FTP suivies de 3 minutes de récupération.',
+        desc: "Augmentation de la PMA. 3 minutes d'effort douloureux à 115% FTP suivies de 3 minutes de récupération.",
         intervals: [
           { name: 'Échauffement', dur: 600, pct: 0.6 },
           ...Array(5).fill([
@@ -436,9 +504,9 @@
         ]
       },
       {
-        id: 'hiit_3030',
+        id: 'hiit_3030', category: 'anaerobic',
         title: 'HIIT Micro-intervalles 30/30',
-        desc: '2 séries de 10 répétitions courtes mais intenses (30s à 130% / 30s à 50%).',
+        desc: "2 séries de 10 répétitions courtes mais intenses (30s à 130% / 30s à 50%).",
         intervals: [
           { name: 'Échauffement', dur: 600, pct: 0.6 },
           ...Array(10).fill([
@@ -454,21 +522,21 @@
         ]
       },
       {
-        id: 'force',
-        title: 'Force sous-cadence (4x 5 min)',
-        desc: 'Travail musculaire à 85% FTP. Pédalez volontairement à basse cadence (55-60 RPM) pendant l\'effort.',
+        id: 'sprints_6x30', category: 'anaerobic',
+        title: 'Sprints Lactiques (6x 30s)',
+        desc: "Développement de la capacité anaérobie (AC). Effort maximal à 150% avec des récupérations très longues (4 min).",
         intervals: [
           { name: 'Échauffement', dur: 600, pct: 0.6 },
-          ...Array(4).fill([
-            { name: 'Bloc Force (55 RPM)', dur: 300, pct: 0.85 },
-            { name: 'Vélocité souple (100 RPM)', dur: 180, pct: 0.55 }
+          ...Array(6).fill([
+            { name: 'Sprint Maximal', dur: 30, pct: 1.50 },
+            { name: 'Récupération', dur: 240, pct: 0.45 }
           ]).flat(),
           { name: 'Retour au calme', dur: 300, pct: 0.5 }
         ]
       }
     ];
 
-    let selectedWorkout = WORKOUTS[2];
+    let selectedWorkout = WORKOUTS[5]; // Default to Sweet Spot
     let isRunning = false;
     let timer = null;
     let currentStepIndex = 0;
@@ -477,14 +545,11 @@
     let targetWatts = 0;
     let wakeLock = null;
 
-    // Track records for analytics
     let sessionData = [];
-
-    // BLE Variables
     let bleDevice = null;
     let controlPointChar = null;
 
-    // --- INTERFACE NAVIGATION ---
+    // --- INTERFACE ---
     function switchTab(tabId) {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.view-container').forEach(c => c.classList.remove('active'));
@@ -505,46 +570,56 @@
     function renderWorkouts() {
       const container = document.getElementById('workoutListContainer');
       container.innerHTML = '';
-      WORKOUTS.forEach(w => {
-        const div = document.createElement('div');
-        div.className = `workout-card ${w.id === selectedWorkout.id ? 'selected' : ''}`;
-        div.onclick = () => { 
-          selectedWorkout = w; 
-          renderWorkouts(); 
-          resetRide(); 
-          switchTab('cockpit'); 
-        };
-        const totalDurMin = Math.round(w.intervals.reduce((a, b) => a + b.dur, 0) / 60);
-        div.innerHTML = `
-          <div class="workout-card-title">
-            <span>${w.title}</span>
-            <span style="color:var(--accent);">${totalDurMin} min</span>
-          </div>
-          <div class="workout-card-desc">${w.desc}</div>
-        `;
-        container.appendChild(div);
+      
+      const categories = [
+        { id: 'test', label: "Tests d'Évaluation (FTP)" },
+        { id: 'endurance', label: "Endurance & Force (Base)" },
+        { id: 'aerobic', label: "Aérobie Élevé (Seuil & Tempo)" },
+        { id: 'anaerobic', label: "Anaérobie (VO2 Max & Sprints)" }
+      ];
+
+      categories.forEach(cat => {
+        const catWorkouts = WORKOUTS.filter(w => w.category === cat.id);
+        if (catWorkouts.length === 0) return;
+
+        const titleNode = document.createElement('div');
+        titleNode.className = 'category-title';
+        titleNode.innerText = cat.label;
+        container.appendChild(titleNode);
+
+        catWorkouts.forEach(w => {
+          const div = document.createElement('div');
+          div.className = `workout-card ${w.id === selectedWorkout.id ? 'selected' : ''}`;
+          div.onclick = () => { 
+            selectedWorkout = w; 
+            renderWorkouts(); 
+            resetRide(); 
+            switchTab('cockpit'); 
+          };
+          const totalDurMin = Math.round(w.intervals.reduce((a, b) => a + b.dur, 0) / 60);
+          div.innerHTML = `
+            <div class="workout-card-title">
+              <span>${w.title}</span>
+              <span style="color:var(--accent);">${totalDurMin} min</span>
+            </div>
+            <div class="workout-card-desc">${w.desc}</div>
+          `;
+          container.appendChild(div);
+        });
       });
     }
 
-    // --- WAKE LOCK ANTI-VEILLE ---
+    // --- WAKE LOCK ---
     async function requestWakeLock() {
       try {
-        if ('wakeLock' in navigator) {
-          wakeLock = await navigator.wakeLock.request('screen');
-        }
-      } catch (err) {
-        console.warn('Wake Lock non actif:', err);
-      }
+        if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); }
+      } catch (err) { console.warn('Wake Lock non actif:', err); }
     }
-
     function releaseWakeLock() {
-      if (wakeLock) {
-        wakeLock.release();
-        wakeLock = null;
-      }
+      if (wakeLock) { wakeLock.release(); wakeLock = null; }
     }
 
-    // --- BLUETOOTH FTMS CONTROL ---
+    // --- BLUETOOTH ---
     async function toggleConnect() {
       if (bleDevice && bleDevice.gatt.connected) {
         bleDevice.gatt.disconnect();
@@ -582,7 +657,6 @@
       const v = event.target.value;
       const flags = v.getUint16(0, true);
       let offset = 2;
-
       if ((flags & 0x01) === 0) { offset += 2; }
       if ((flags & 0x04) !== 0) {
         const cad = v.getUint16(offset, true) * 0.5;
@@ -599,28 +673,20 @@
       if (!controlPointChar) return;
       try {
         const buf = new Uint8Array(3);
-        buf[0] = 0x05; 
-        buf[1] = w & 0xFF;
-        buf[2] = (w >> 8) & 0xFF;
+        buf[0] = 0x05; buf[1] = w & 0xFF; buf[2] = (w >> 8) & 0xFF;
         await controlPointChar.writeValue(buf);
-      } catch (err) {
-        console.warn('Erreur envoi ERG:', err);
-      }
+      } catch (err) { console.warn('Erreur ERG:', err); }
     }
 
-    // --- WORKOUT ENGINE ---
+    // --- ENGINE ---
     function toggleRide() {
-      if (isRunning) {
-        pauseRide();
-      } else {
-        startRide();
-      }
+      if (isRunning) pauseRide();
+      else startRide();
     }
 
     function startRide() {
       isRunning = true;
       document.getElementById('btnStart').innerText = 'Pause';
-      
       const btn = document.getElementById('btnStart');
       btn.classList.remove('btn-primary');
       btn.classList.add('btn-secondary');
@@ -645,7 +711,6 @@
           currentStepRemaining = selectedWorkout.intervals[currentStepIndex].dur;
           updateTargetForCurrentStep();
         }
-
         updateCockpitDisplay();
       }, 1000);
     }
@@ -655,7 +720,6 @@
       clearInterval(timer);
       releaseWakeLock();
       document.getElementById('btnStart').innerText = 'Reprendre';
-      
       const btn = document.getElementById('btnStart');
       btn.classList.remove('btn-secondary');
       btn.classList.add('btn-primary');
@@ -721,7 +785,7 @@
       }
     }
 
-    // --- ALGORITHMES D'ANALYSE ---
+    // --- ANALYTICS ---
     function calculateNP(powerCurve) {
       if (powerCurve.length < 30) return Math.round(powerCurve.reduce((a,b)=>a+b,0) / (powerCurve.length || 1));
       let rolling = [];
@@ -737,7 +801,6 @@
 
     function updateAnalyticsUI() {
       if (sessionData.length === 0) return;
-
       const powers = sessionData.map(d => d.p);
       const avgP = Math.round(powers.reduce((a, b) => a + b, 0) / powers.length);
       const np = calculateNP(powers);
@@ -809,12 +872,9 @@
       });
     }
 
-    // --- EXPORT TCX STANDARD POUR GARMIN ---
+    // --- EXPORT TCX ---
     function exportTCX() {
-      if (sessionData.length === 0) {
-        alert("Aucune donnée enregistrée pour le moment.");
-        return;
-      }
+      if (sessionData.length === 0) { alert("Aucune donnée enregistrée pour le moment."); return; }
       const startTime = new Date(Date.now() - sessionData.length * 1000).toISOString();
       let tcx = `<?xml version="1.0" encoding="UTF-8"?>\n<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">\n  <Activities>\n    <Activity Sport="Biking">\n      <Id>${startTime}</Id>\n      <Lap StartTime="${startTime}">\n        <TotalTimeSeconds>${sessionData.length}</TotalTimeSeconds>\n        <DistanceMeters>0</DistanceMeters>\n        <Calories>${Math.round(sessionData.reduce((a,b)=>a+b.p,0)*0.24/1000)}</Calories>\n        <Intensity>Active</Intensity>\n        <TriggerMethod>Manual</TriggerMethod>\n        <Track>\n`;
 
